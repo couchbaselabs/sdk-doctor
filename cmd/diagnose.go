@@ -301,7 +301,6 @@ func Diagnose(connStr, bucketPass string) {
 	//======================================================================
 	//  BOOTSTRAP
 	//======================================================================
-
 	var nodesList []ClusterNode
 
 	// Attempt to bootstrap via CCCP

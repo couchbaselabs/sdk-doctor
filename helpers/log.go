@@ -50,8 +50,8 @@ func (l Logger) PrintSummary() {
 
 	fmt.Printf("\n")
 	if len(l.warns) > 0 || len(l.errors) > 0 {
-		fmt.Printf("Found multiple issues, see listing above.")
+		fmt.Printf("Found multiple issues, see listing above.\n")
 	} else {
-		fmt.Printf("Nothing of importance to note!  Nice job!")
+		fmt.Printf("Nothing of importance to note!  Nice job!\n")
 	}
 }
