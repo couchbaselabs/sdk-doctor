@@ -619,8 +619,8 @@ func Diagnose(connStr, bucketPass string) {
 				if stats.Mean() >= time.Duration(allowedMeanMs) * time.Millisecond {
 					gLog.Warn(
 						"Memcached service on `%s:%d` took longer than %dms (was: %dms) on average to" +
-						" reply.  While this in itself is not a major issue, it usually points to" +
-						" network related troubles which could significantly impact app performance.",
+						" reply.  This is usually due to network-related issues, and could significantly" +
+						" affect application performance.",
 						node.Hostname, node.Services["kv"],
 						allowedMeanMs, stats.Mean() / time.Millisecond)
 				}
@@ -628,9 +628,9 @@ func Diagnose(connStr, bucketPass string) {
 				allowedMaxMs := 20
 				if stats.Max() >= time.Duration(allowedMaxMs) * time.Millisecond {
 					gLog.Warn(
-						"Memcached service on `%s:%d` took longer than %dms (was: %dms) maximum to" +
-						" reply.  While this in itself is not a major issue, it usually points to" +
-						" network related troubles which could significantly impact app performance.",
+						"Memcached service on `%s:%d` took longer than %dms (was: %dms) to reply." +
+						" This is usually due to network-related issues, and could significantly" +
+						" affect application performance.",
 						node.Hostname, node.Services["kv"],
 						allowedMaxMs, stats.Max() / time.Millisecond)
 				}
