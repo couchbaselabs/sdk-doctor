@@ -163,6 +163,33 @@ func FetchHttpTerseBucketConfig(host string, port int, bucket, pass string) (Ter
 	}
 
 	configBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return TerseBucketConfig{}, err
+	}
+
+	configBytes = bytes.Replace(configBytes, []byte("$HOST"), []byte(host), -1)
+
+	var config TerseBucketConfig
+	err = json.Unmarshal(configBytes, &config)
+	if err != nil {
+		return TerseBucketConfig{}, err
+	}
+
+	config.SourceHost = host
+
+	return config, nil
+}
+
+func FetchCccpTerseBucketConfig(host string, port int, bucket, pass string) (TerseBucketConfig, error) {
+	client, err := helpers.Dial(host, port, bucket, bucket, pass)
+	if err != nil {
+		return TerseBucketConfig{}, err
+	}
+
+	configBytes, err := client.GetConfig()
+	if err != nil {
+		return TerseBucketConfig{}, err
+	}
 
 	configBytes = bytes.Replace(configBytes, []byte("$HOST"), []byte(host), -1)
 
@@ -303,6 +330,48 @@ func Diagnose(connStr, bucketPass string) {
 	//  BOOTSTRAP
 	//======================================================================
 	var nodesList []ClusterNode
+	var configSource string
+
+	// Scans a list of hosts and configurations and logs any appropriate warnings then returns
+	//  the first good configuration that it actually encounters (or nil if none are found).
+	scanTerseConfigList := func(hosts []connstr.HostPortPair, configs []*TerseBucketConfig) *TerseBucketConfig {
+		if len(hosts) != len(configs) {
+			panic(0)
+		}
+
+		var masterConfig *TerseBucketConfig
+
+		for i, target := range hosts {
+			config := configs[i]
+
+			if config == nil {
+				continue
+			}
+
+			if masterConfig == nil {
+				masterConfig = config
+			} else {
+				if config.Uuid != masterConfig.Uuid {
+					gLog.Error(
+						"Boostrap host `%s` appears to be pointing to a different cluster.  Tests" +
+						" will be running against the first successfully connected node in your" +
+						" bootstrap list, as a client would behave.",
+						target.Host)
+				}
+			}
+
+			thisNodeExt := config.GetSourceNodeExt()
+			if thisNodeExt.Hostname != "" && target.Host != thisNodeExt.Hostname {
+				gLog.Warn(
+					"Bootstrap host `%s` is not using the canonical node hostname of `%s`.  This" +
+					" is not neccessarily an error, but has been known to result in strange and" +
+					" difficult-to-diagnose errors in the future when routing gets changed.",
+					target.Host, thisNodeExt.Hostname)
+			}
+		}
+
+		return masterConfig
+	}
 
 	// Attempt to bootstrap via CCCP
 	if nodesList == nil {
@@ -311,7 +380,30 @@ func Diagnose(connStr, bucketPass string) {
 		} else {
 			gLog.Log("Attempting to connect to cluster via CCCP")
 
-			gLog.Log("Failed to connect via CCCP, as it is not yet supported by the doctor")
+			configs := make([]*TerseBucketConfig, len(resConnSpec.CccpHosts))
+
+			for i, target := range resConnSpec.CccpHosts {
+				gLog.Log("Attempting to fetch config via cccp from `%s:%d`", target.Host, target.Port)
+
+				// Query the host
+				config, err := FetchCccpTerseBucketConfig(target.Host, target.Port, resConnSpec.Bucket, bucketPass)
+				if err != nil {
+					gLog.Error(
+						"Failed to fetch configuration via cccp from `%s:%d` (error: %s)",
+						target.Host, target.Port, err.Error())
+
+					continue
+				}
+
+
+				configs[i] = &config
+			}
+
+			masterConfig := scanTerseConfigList(resConnSpec.CccpHosts, configs)
+			if masterConfig != nil {
+				nodesList = ClusterNodesFromTerseBucketConfig(*masterConfig)
+				configSource = "cccp"
+			}
 		}
 	}
 
@@ -322,45 +414,28 @@ func Diagnose(connStr, bucketPass string) {
 		} else {
 			gLog.Log("Attempting to connect to cluster via HTTP (Terse)")
 
-			var masterConfig *TerseBucketConfig
+			configs := make([]*TerseBucketConfig, len(resConnSpec.HttpHosts))
 
-			for _, target := range resConnSpec.HttpHosts {
+			for i, target := range resConnSpec.HttpHosts {
 				gLog.Log("Attempting to fetch terse config via http from `%s:%d`", target.Host, target.Port)
 
 				// Query the host
 				config, err := FetchHttpTerseBucketConfig(target.Host, target.Port, resConnSpec.Bucket, bucketPass)
 				if err != nil {
 					gLog.Error(
-						"Failed to fetch terse configuration via http from bootstrap host `%s` (error: %s)",
-						target.Host, err.Error())
+						"Failed to fetch terse configuration via http from `%s:%d` (error: %s)",
+						target.Host, target.Port, err.Error())
 
 					continue
 				}
 
-				if masterConfig == nil {
-					masterConfig = &config
-				} else {
-					if config.Uuid != masterConfig.Uuid {
-						gLog.Error(
-							"Boostrap host `%s` appears to be pointing to a different cluster.  Tests" +
-							" will be running against the first successfully connected node in your" +
-							" bootstrap list, as a client would behave.",
-							target.Host)
-					}
-				}
-
-				thisNodeExt := config.GetSourceNodeExt()
-				if thisNodeExt.Hostname != "" && target.Host != thisNodeExt.Hostname {
-					gLog.Warn(
-						"Bootstrap host `%s` is not using the canonical node hostname of `%s`.  This" +
-						" is not neccessarily an error, but has been known to result in strange and" +
-						" difficult-to-diagnose errors in the future when routing gets changed.",
-						target.Host, thisNodeExt.Hostname)
-				}
+				configs[i] = &config
 			}
 
+			masterConfig := scanTerseConfigList(resConnSpec.HttpHosts, configs)
 			if masterConfig != nil {
 				nodesList = ClusterNodesFromTerseBucketConfig(*masterConfig)
+				configSource = "http-terse"
 			}
 		}
 	}
@@ -372,6 +447,8 @@ func Diagnose(connStr, bucketPass string) {
 		} else {
 			gLog.Log("Attempting to connect to cluster via HTTP (Full)")
 
+			// TODO: Add support for full HTTP configuration fetching
+
 			gLog.Log("Failed to connect via HTTP (Full), as it is not yet supported by the doctor")
 		}
 	}
@@ -379,8 +456,16 @@ func Diagnose(connStr, bucketPass string) {
 
 	// Failed to bootstrap
 	if nodesList == nil {
-		gLog.Error("All endpoints specified by your connection string were unreachable, further cluster diagnostics are not possible")
+		gLog.Error(
+			"All endpoints specified by your connection string were unreachable, further" +
+			" cluster diagnostics are not possible")
 		return
+	}
+
+	if configSource != "cccp" {
+		gLog.Warn(
+			"You're configuration was fetched via a non-optimal path, you should update your" +
+			" connection string and/or cluster configuration to allow CCCP config fetch")
 	}
 
 
