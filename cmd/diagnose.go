@@ -583,5 +583,61 @@ func Diagnose(connStr, bucketPass string) {
 			gLog.Error("Testing of SSL connections is not yet supported")
 		}
 	}
+
+
+	//======================================================================
+	//  CONNECTION PERFORMANCE
+	//======================================================================
+	for _, node := range nodesList {
+		if !resConnSpec.UseSsl {
+			if node.Services["kv"] != 0 {
+				client, err := helpers.Dial(node.Hostname, node.Services["kv"],
+					resConnSpec.Bucket, resConnSpec.Bucket, bucketPass)
+				if err != nil {
+					gLog.Warn(
+						"Failed to perform KV connection performance analysis on `%s:%d` (error: %d)",
+						node.Hostname, node.Services["kv"], err.Error())
+					continue
+				}
+
+				var stats helpers.PingHelper
+
+				for i := 0; i < 10; i++ {
+					pingState := stats.StartOne()
+					err = client.Ping()
+					stats.StopOne(pingState, err)
+				}
+
+				gLog.Log("Memd Nop Pinged `%s:%d` %d times, %d errors, %dms min, %dms max, %dms mean",
+					node.Hostname, node.Services["kv"],
+					stats.Count(), stats.Errors(),
+					stats.Min() / time.Millisecond,
+					stats.Max() / time.Millisecond,
+					stats.Mean() / time.Millisecond)
+
+				allowedMeanMs := 200
+				if stats.Mean() >= time.Duration(allowedMeanMs) * time.Millisecond {
+					gLog.Warn(
+						"Memcached service on `%s:%d` took longer than %dms on average to reply." +
+						" While this in itself is not a major issue, it usually points to network" +
+						" related troubles which could be significantly impacting application" +
+						"performance.",
+						allowedMeanMs, node.Hostname, node.Services["kv"])
+				}
+
+				allowedMaxMs := 500
+				if stats.Max() >= time.Duration(allowedMaxMs) * time.Millisecond {
+					gLog.Warn(
+						"Memcached service on `%s:%d` took more than %dms to reply to a request." +
+						"  While this in itself is not a major issue, it usually points to network" +
+						" related troubles which could be significantly impacting application" +
+						" performance.",
+						allowedMaxMs, node.Hostname, node.Services["kv"])
+				}
+			}
+		} else {
+			gLog.Error("Testing of SSL connections is not yet supported")
+		}
+	}
 }
 
