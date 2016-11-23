@@ -170,7 +170,7 @@ func RunDiagnose(cmd *cobra.Command, args []string) error {
 
 	connSpecSrv := connSpec.SrvRecordName()
 	if connSpecSrv != "" {
-		gLog.Notice("Connection string was parsed as a potential DNS SRV record")
+		gLog.Log("Connection string was parsed as a potential DNS SRV record")
 	}
 
 	resConnSpec, err := connstr.Resolve(connSpec)
@@ -180,20 +180,20 @@ func RunDiagnose(cmd *cobra.Command, args []string) error {
 	}
 
 	if resConnSpec.UseSsl {
-		gLog.Notice("Connection string specifies to use secured connections")
+		gLog.Log("Connection string specifies to use secured connections")
 	}
 
-	gLog.Notice("Connection string identifies the following CCCP endpoints:")
+	gLog.Log("Connection string identifies the following CCCP endpoints:")
 	for i, host := range resConnSpec.CccpHosts {
-		gLog.Notice("  %d. %s:%d", i+1, host.Host, host.Port)
+		gLog.Log("  %d. %s:%d", i+1, host.Host, host.Port)
 	}
 
-	gLog.Notice("Connection string identifies the following HTTP endpoints:")
+	gLog.Log("Connection string identifies the following HTTP endpoints:")
 	for i, host := range resConnSpec.HttpHosts {
-		gLog.Notice("  %d. %s:%d", i+1, host.Host, host.Port)
+		gLog.Log("  %d. %s:%d", i+1, host.Host, host.Port)
 	}
 
-	gLog.Notice("Connection string specifies bucket `%s`", resConnSpec.Bucket)
+	gLog.Log("Connection string specifies bucket `%s`", resConnSpec.Bucket)
 
 
 
@@ -226,6 +226,7 @@ func RunDiagnose(cmd *cobra.Command, args []string) error {
 			" consider adding additional static nodes from your cluster to this" +
 			" list to improve your applications fault-tolerance")
 	}
+
 
 
 	if len(resConnSpec.HttpHosts) == 0 {
@@ -277,7 +278,7 @@ func RunDiagnose(cmd *cobra.Command, args []string) error {
 					" problems in the future when routing is changed or the cluster layout is updated.",
 					target.Host)
 			} else if addrs[0] != target.Host {
-				gLog.Notice(
+				gLog.Log(
 					"Bootstrap host `%s` refers to a server with the address `%s`",
 					target.Host, addrs[0])
 			}
@@ -327,7 +328,7 @@ func RunDiagnose(cmd *cobra.Command, args []string) error {
 				if !resConnSpec.UseSsl {
 					if node.Services["kv"] != 0 {
 						// TODO: Implement pinging of memcached services
-						gLog.Notice("KV service at `%s:%d` was not tested.  Not yet implemented.",
+						gLog.Log("KV service at `%s:%d` was not tested.  Not yet implemented.",
 							node.Hostname, node.Services["kv"])
 					}
 
@@ -338,7 +339,7 @@ func RunDiagnose(cmd *cobra.Command, args []string) error {
 							gLog.Error("Failed to connect to MGMT service at `%s:%d` (error: %s)",
 								node.Hostname, node.Services["mgmt"], err.Error())
 						} else {
-							gLog.Notice("Successfully connected to MGMT service at `%s:%d`",
+							gLog.Log("Successfully connected to MGMT service at `%s:%d`",
 								node.Hostname, node.Services["mgmt"])
 						}
 					}
@@ -350,7 +351,7 @@ func RunDiagnose(cmd *cobra.Command, args []string) error {
 							gLog.Error("Failed to connect to CAPI service at `%s:%d` (error: %s)",
 								node.Hostname, node.Services["capi"], err.Error())
 						} else {
-							gLog.Notice("Successfully connected to CAPI service at `%s:%d`",
+							gLog.Log("Successfully connected to CAPI service at `%s:%d`",
 								node.Hostname, node.Services["capi"])
 						}
 					}
@@ -362,7 +363,7 @@ func RunDiagnose(cmd *cobra.Command, args []string) error {
 							gLog.Error("Failed to connect to N1QL service at `%s:%d` (error: %s)",
 								node.Hostname, node.Services["n1ql"], err.Error())
 						} else {
-							gLog.Notice("Successfully connected to N1QL service at `%s:%d`",
+							gLog.Log("Successfully connected to N1QL service at `%s:%d`",
 								node.Hostname, node.Services["n1ql"])
 						}
 					}
@@ -374,7 +375,7 @@ func RunDiagnose(cmd *cobra.Command, args []string) error {
 							gLog.Error("Failed to connect to FTS service at `%s:%d` (error: %s)",
 								node.Hostname, node.Services["fts"], err.Error())
 						} else {
-							gLog.Notice("Successfully connected to FTS service at `%s:%d`",
+							gLog.Log("Successfully connected to FTS service at `%s:%d`",
 								node.Hostname, node.Services["fts"])
 						}
 					}

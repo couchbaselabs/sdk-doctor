@@ -7,7 +7,6 @@ import (
 )
 
 type Logger struct {
-	notices []string
 	warns []string
 	errors []string
 }
@@ -24,36 +23,29 @@ func (l *Logger) NewLine() {
 
 func (l *Logger) Log(format string, args ...interface{}) {
 	line := fmt.Sprintf(format, args...)
-	fmt.Printf("%s ▶ %s\n", timeLogStr(), line)
-}
-
-func (l *Logger) Notice(format string, args ...interface{}) {
-	line := fmt.Sprintf(format, args...)
-	fmt.Printf("%s ▶ %s\n", timeLogStr(), line)
-	l.notices = append(l.notices, line)
+	fmt.Printf("%s INFO ▶ %s\n", timeLogStr(), line)
 }
 
 func (l *Logger) Warn(format string, args ...interface{}) {
 	line := fmt.Sprintf(format, args...)
-	fmt.Printf("%s ▶ %s\n", timeLogStr(), line)
+	fmt.Printf("%s WARN ▶ %s\n", timeLogStr(), line)
 	l.warns = append(l.warns, line)
 }
 
 func (l *Logger) Error(format string, args ...interface{}) {
 	line := fmt.Sprintf(format, args...)
-	fmt.Printf("%s ▶ %s\n", timeLogStr(), line)
+	fmt.Printf("%s ERRO ▶ %s\n", timeLogStr(), line)
 	l.errors = append(l.errors, line)
 }
 
 func (l Logger) PrintSummary() {
-	for _, line := range l.notices {
-		fmt.Printf("%s %s\n", color.WhiteString("[INFO]"), line)
-	}
+	fmt.Printf("Summary:\n")
+
 	for _, line := range l.warns {
 		fmt.Printf("%s %s\n", color.YellowString("[WARN]"), line)
 	}
 	for _, line := range l.errors {
-		fmt.Printf("%s %s\n", color.RedString("[ERROR]"), line)
+		fmt.Printf("%s %s\n", color.RedString("[ERRO]"), line)
 	}
 
 	fmt.Printf("\n")
