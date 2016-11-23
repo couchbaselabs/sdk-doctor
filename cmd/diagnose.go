@@ -615,24 +615,24 @@ func Diagnose(connStr, bucketPass string) {
 					stats.Max() / time.Millisecond,
 					stats.Mean() / time.Millisecond)
 
-				allowedMeanMs := 200
+				allowedMeanMs := 10
 				if stats.Mean() >= time.Duration(allowedMeanMs) * time.Millisecond {
 					gLog.Warn(
-						"Memcached service on `%s:%d` took longer than %dms on average to reply." +
-						" While this in itself is not a major issue, it usually points to network" +
-						" related troubles which could be significantly impacting application" +
-						"performance.",
-						allowedMeanMs, node.Hostname, node.Services["kv"])
+						"Memcached service on `%s:%d` took longer than %dms (was: %dms) on average to" +
+						" reply.  While this in itself is not a major issue, it usually points to" +
+						" network related troubles which could significantly impact app performance.",
+						node.Hostname, node.Services["kv"],
+						allowedMeanMs, stats.Mean() / time.Millisecond)
 				}
 
-				allowedMaxMs := 500
+				allowedMaxMs := 20
 				if stats.Max() >= time.Duration(allowedMaxMs) * time.Millisecond {
 					gLog.Warn(
-						"Memcached service on `%s:%d` took more than %dms to reply to a request." +
-						"  While this in itself is not a major issue, it usually points to network" +
-						" related troubles which could be significantly impacting application" +
-						" performance.",
-						allowedMaxMs, node.Hostname, node.Services["kv"])
+						"Memcached service on `%s:%d` took longer than %dms (was: %dms) maximum to" +
+						" reply.  While this in itself is not a major issue, it usually points to" +
+						" network related troubles which could significantly impact app performance.",
+						node.Hostname, node.Services["kv"],
+						allowedMaxMs, stats.Max() / time.Millisecond)
 				}
 			}
 		} else {

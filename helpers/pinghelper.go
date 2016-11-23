@@ -68,5 +68,5 @@ func (ph *PingHelper) Max() time.Duration {
 }
 
 func (ph *PingHelper) Mean() time.Duration {
-	return time.Duration(float64(ph.sum) / float64(ph.count))
+	return time.Duration(float64(ph.sum) / float64(ph.successCount))
 }
