@@ -32,7 +32,7 @@ var (
 func init() {
 	RootCmd.AddCommand(diagnoseCmd)
 
-	diagnoseCmd.PersistentFlags().StringVar(&bucketPassword, "bucket-password", "p", "bucket password")
+	diagnoseCmd.PersistentFlags().StringVarP(&bucketPassword, "bucket-password", "p", "", "bucket password")
 }
 
 var gLog helpers.Logger
