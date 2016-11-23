@@ -1,4 +1,4 @@
-package sdk_doctor
+package memd
 
 import (
 	"crypto/tls"
@@ -11,7 +11,7 @@ import (
 // The data for a request that can be queued with a memdqueueconn,
 //   and can potentially be rerouted to multiple servers due to
 //   configuration changes.
-type memdRequest struct {
+type MemdRequest struct {
 	Magic    CommandMagic
 	Opcode   CommandCode
 	Datatype uint8
@@ -25,7 +25,7 @@ type memdRequest struct {
 
 // The data returned from the server in relation to an executed
 //   request.
-type memdResponse struct {
+type MemdResponse struct {
 	Magic    CommandMagic
 	Opcode   CommandCode
 	Datatype uint8
@@ -37,13 +37,13 @@ type memdResponse struct {
 	Value    []byte
 }
 
-type memdDialer interface {
+type MemdDialer interface {
 	Dial(address string) (io.ReadWriteCloser, error)
 }
 
-type memdReadWriteCloser interface {
-	WritePacket(*memdRequest) error
-	ReadPacket(*memdResponse) error
+type MemdReadWriteCloser interface {
+	WritePacket(*MemdRequest) error
+	ReadPacket(*MemdResponse) error
 	Close() error
 }
 
@@ -52,7 +52,7 @@ type memdConn struct {
 	recvBuf []byte
 }
 
-func DialMemdConn(address string, tlsConfig *tls.Config, deadline time.Time) (*memdConn, error) {
+func DialMemdConn(address string, tlsConfig *tls.Config, deadline time.Time) (MemdReadWriteCloser, error) {
 	d := net.Dialer{
 		Deadline: deadline,
 	}
@@ -87,7 +87,7 @@ func (s *memdConn) Close() error {
 	return s.conn.Close()
 }
 
-func (s *memdConn) WritePacket(req *memdRequest) error {
+func (s *memdConn) WritePacket(req *MemdRequest) error {
 	extLen := len(req.Extras)
 	keyLen := len(req.Key)
 	valLen := len(req.Value)
@@ -149,7 +149,7 @@ func (s *memdConn) readBuffered(n int) ([]byte, error) {
 	}
 }
 
-func (s *memdConn) ReadPacket(resp *memdResponse) error {
+func (s *memdConn) ReadPacket(resp *MemdResponse) error {
 	hdrBuf, err := s.readBuffered(24)
 	if err != nil {
 		return err

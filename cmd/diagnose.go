@@ -287,6 +287,7 @@ func Diagnose(connStr, bucketPass string) {
 		}
 	}
 
+
 	//======================================================================
 	//  SSL
 	//======================================================================
@@ -433,9 +434,17 @@ func Diagnose(connStr, bucketPass string) {
 	for _, node := range nodesList {
 		if !resConnSpec.UseSsl {
 			if node.Services["kv"] != 0 {
-				// TODO: Implement pinging of memcached services
-				gLog.Log("KV service at `%s:%d` was not tested.  Not yet implemented.",
-					node.Hostname, node.Services["kv"])
+				client, err := helpers.Dial(node.Hostname, node.Services["kv"],
+					resConnSpec.Bucket, resConnSpec.Bucket, bucketPass)
+				if err != nil {
+					gLog.Error("Failed to connect to KV service at `%s:%d` (error: %s)",
+						node.Hostname, node.Services["kv"], err.Error())
+				} else {
+					gLog.Log("Successfully connected to KV service at `%s:%d`",
+						node.Hostname, node.Services["kv"])
+
+					client.Close()
+				}
 			}
 
 			if node.Services["mgmt"] != 0 {

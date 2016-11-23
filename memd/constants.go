@@ -1,8 +1,4 @@
-package sdk_doctor
-
-const (
-	GoCbVersionStr = "v1.1.2"
-)
+package memd
 
 type CommandMagic uint8
 
@@ -22,6 +18,7 @@ const (
 	CmdDelete               = CommandCode(0x04)
 	CmdIncrement            = CommandCode(0x05)
 	CmdDecrement            = CommandCode(0x06)
+	CmdNop					= CommandCode(0x0a)
 	CmdAppend               = CommandCode(0x0e)
 	CmdPrepend              = CommandCode(0x0f)
 	CmdStat                 = CommandCode(0x10)
