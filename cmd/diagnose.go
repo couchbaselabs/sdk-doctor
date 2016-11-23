@@ -385,6 +385,47 @@ func Diagnose(connStr, bucketPass string) {
 
 
 	//======================================================================
+	//  CLUSTER INFORMATION
+	//======================================================================
+	if resConnSpec.UseSsl {
+		gLog.Log("Failed to retrieve cluster information as we don't yet support SSL")
+	} else {
+		var infoSourceTarget *ClusterNode
+
+		for _, target := range nodesList {
+			if target.Services["mgmt"] != 0 {
+				infoSourceTarget = &target
+				break
+			}
+		}
+
+		if infoSourceTarget == nil {
+			gLog.Log("Failed to retrieve cluster information as we couldn't find a node with management services")
+		} else {
+			infoSourceHost := infoSourceTarget.Hostname
+			infoSourcePort := infoSourceTarget.Services["mgmt"]
+			uri := fmt.Sprintf("http://%s:%d/pools/default", infoSourceHost, infoSourcePort)
+
+			var httpClient http.Client
+			httpClient.Timeout = time.Millisecond * 2000
+
+			resp, err := httpClient.Get(uri)
+			if err != nil {
+				gLog.Log("Failed to retreive cluster information (error: %s)", err.Error())
+			} else if resp.StatusCode != 200 {
+				gLog.Log("Failed to retreive cluster information (status code: %d)", resp.StatusCode)
+			} else {
+				var clusterConfig map[string]interface{}
+				json.NewDecoder(resp.Body).Decode(&clusterConfig)
+
+				fmtdConfigNodes, _ := json.MarshalIndent(clusterConfig["nodes"], "", "  ")
+				gLog.Log("Received cluster configuration, nodes list:\n%s", fmtdConfigNodes)
+			}
+		}
+	}
+
+
+	//======================================================================
 	//  SERVICES
 	//======================================================================
 	var testHttpClient http.Client
