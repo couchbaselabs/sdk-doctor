@@ -35,7 +35,6 @@ func init() {
 }
 
 var gLog helpers.Logger
-var gHttpClient http.Client
 
 func RunDiagnose(cmd *cobra.Command, args []string) error {
 	fmt.Printf("|====================================================================|\n")
@@ -383,11 +382,14 @@ func Diagnose(connStr, bucketPass string) {
 		gLog.Error("All endpoints specified by your connection string were unreachable, further cluster diagnostics are not possible")
 		return
 	}
-	
+
 
 	//======================================================================
 	//  SERVICES
 	//======================================================================
+	var testHttpClient http.Client
+	testHttpClient.Timeout = time.Millisecond * 2000
+
 	for _, node := range nodesList {
 		if !resConnSpec.UseSsl {
 			if node.Services["kv"] != 0 {
@@ -398,7 +400,7 @@ func Diagnose(connStr, bucketPass string) {
 
 			if node.Services["mgmt"] != 0 {
 				uri := fmt.Sprintf("http://%s:%d/", node.Hostname, node.Services["mgmt"])
-				_, err := gHttpClient.Get(uri)
+				_, err := testHttpClient.Get(uri)
 				if err != nil {
 					gLog.Error("Failed to connect to MGMT service at `%s:%d` (error: %s)",
 						node.Hostname, node.Services["mgmt"], err.Error())
@@ -410,7 +412,7 @@ func Diagnose(connStr, bucketPass string) {
 
 			if node.Services["capi"] != 0 {
 				uri := fmt.Sprintf("http://%s:%d/", node.Hostname, node.Services["capi"])
-				_, err := gHttpClient.Get(uri)
+				_, err := testHttpClient.Get(uri)
 				if err != nil {
 					gLog.Error("Failed to connect to CAPI service at `%s:%d` (error: %s)",
 						node.Hostname, node.Services["capi"], err.Error())
@@ -422,7 +424,7 @@ func Diagnose(connStr, bucketPass string) {
 
 			if node.Services["n1ql"] != 0 {
 				uri := fmt.Sprintf("http://%s:%d/", node.Hostname, node.Services["n1ql"])
-				_, err := gHttpClient.Get(uri)
+				_, err := testHttpClient.Get(uri)
 				if err != nil {
 					gLog.Error("Failed to connect to N1QL service at `%s:%d` (error: %s)",
 						node.Hostname, node.Services["n1ql"], err.Error())
@@ -434,7 +436,7 @@ func Diagnose(connStr, bucketPass string) {
 
 			if node.Services["fts"] != 0 {
 				uri := fmt.Sprintf("http://%s:%d/", node.Hostname, node.Services["fts"])
-				_, err := gHttpClient.Get(uri)
+				_, err := testHttpClient.Get(uri)
 				if err != nil {
 					gLog.Error("Failed to connect to FTS service at `%s:%d` (error: %s)",
 						node.Hostname, node.Services["fts"], err.Error())
