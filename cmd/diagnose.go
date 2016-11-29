@@ -18,7 +18,7 @@ import (
 var diagnoseCmd = &cobra.Command{
 	Use:   "diagnose [connection_string]",
 	Short: "Diagnose checks for problems with your configuration",
-	Long: `Diagnose runs various tests against you're network and cluster
+	Long: `Diagnose runs various tests against your network and cluster
 to identify any flaws in your configuration that would cause failures
 in development or production environments.`,
 	RunE: RunDiagnose,
@@ -47,7 +47,7 @@ func RunDiagnose(cmd *cobra.Command, args []string) error {
 	fmt.Printf("\n")
 
 	fmt.Printf(
-		"Note: Diagnostics can only provide accurate results when you're cluster\n" +
+		"Note: Diagnostics can only provide accurate results when your cluster\n" +
 		" is in a stable state.  Active rebalancing and other cluster configuration\n" +
 		" changes can cause the output of the doctor to be inconsistent or in the\n" +
 		" worst cases, completely incorrect.\n")
@@ -464,7 +464,7 @@ func Diagnose(connStr, bucketPass string) {
 
 	if configSource != "cccp" {
 		gLog.Warn(
-			"You're configuration was fetched via a non-optimal path, you should update your" +
+			"Your configuration was fetched via a non-optimal path, you should update your" +
 			" connection string and/or cluster configuration to allow CCCP config fetch")
 	}
 
