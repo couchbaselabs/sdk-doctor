@@ -271,7 +271,7 @@ func Diagnose(connStr, bucketPass string) {
 
 	if warnSingleHost {
 		gLog.Warn(
-			"You're connection string specifies only a single host.  You should" +
+			"Your connection string specifies only a single host.  You should" +
 			" consider adding additional static nodes from your cluster to this" +
 			" list to improve your applications fault-tolerance")
 	}
