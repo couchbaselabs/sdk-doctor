@@ -18,5 +18,7 @@ It is recommended that you use the actual connection string from your planned ap
 ### How To Build
 The build steps are similar to most go programs.  Given a properly set up go build environment:
 
+```
 $ go get
 $ go build
+```
