@@ -11,3 +11,12 @@ Simply invoke the doctor with the `diagnose` sub-command and a valid connection 
 ```bash
 sdk-doctor diagnose couchbase://127.0.0.1/default
 ```
+
+It is recommended that you use the actual connection string from your planned application.
+
+
+### How To Build
+The build steps are similar to most go programs.  Given a properly set up go build environment:
+
+$ go get
+$ go build
