@@ -37,15 +37,6 @@ func init() {
 var gLog helpers.Logger
 
 func RunDiagnose(cmd *cobra.Command, args []string) error {
-	fmt.Printf("|====================================================================|\n")
-	fmt.Printf("|          ___ ___  _  __   ___   ___   ___ _____ ___  ___           |\n")
-	fmt.Printf("|         / __|   \\| |/ /__|   \\ / _ \\ / __|_   _/ _ \\| _ \\          |\n")
-	fmt.Printf("|         \\__ \\ |) | ' <___| |) | (_) | (__  | || (_) |   /          |\n")
-	fmt.Printf("|         |___/___/|_|\\_\\  |___/ \\___/ \\___| |_| \\___/|_|_\\          |\n")
-	fmt.Printf("|                                                                    |\n")
-	fmt.Printf("|====================================================================|\n")
-	fmt.Printf("\n")
-
 	fmt.Printf(
 		"Note: Diagnostics can only provide accurate results when your cluster\n" +
 		" is in a stable state.  Active rebalancing and other cluster configuration\n" +
