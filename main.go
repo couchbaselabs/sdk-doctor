@@ -1,7 +1,19 @@
 package main
 
-import "github.com/couchbaselabs/sdk-doctor/cmd"
+import (
+	"github.com/couchbaselabs/sdk-doctor/cmd"
+	"fmt"
+)
 
 func main() {
+	fmt.Printf("|====================================================================|\n")
+	fmt.Printf("|          ___ ___  _  __   ___   ___   ___ _____ ___  ___           |\n")
+	fmt.Printf("|         / __|   \\| |/ /__|   \\ / _ \\ / __|_   _/ _ \\| _ \\          |\n")
+	fmt.Printf("|         \\__ \\ |) | ' <___| |) | (_) | (__  | || (_) |   /          |\n")
+	fmt.Printf("|         |___/___/|_|\\_\\  |___/ \\___/ \\___| |_| \\___/|_|_\\          |\n")
+	fmt.Printf("|                                                                    |\n")
+	fmt.Printf("|====================================================================|\n")
+	fmt.Printf("\n")
+
 	cmd.Execute()
 }
