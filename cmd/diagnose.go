@@ -220,6 +220,12 @@ func Diagnose(connStr, bucketPass string) {
 	if connSpecSrv != "" {
 		gLog.Log("Connection string was parsed as a potential DNS SRV record")
 	}
+	
+	if connSpec.Scheme == "http" {
+		gLog.Warn(
+			"Connection string is using the deprecated `http://` scheme.  Use" +
+			" the `couchbase://` scheme instead!")
+	}
 
 	resConnSpec, err := connstr.Resolve(connSpec)
 	if err != nil {
