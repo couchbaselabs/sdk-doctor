@@ -44,11 +44,15 @@ func RunDiagnose(cmd *cobra.Command, args []string) error {
 		" worst cases, completely incorrect.\n")
 	fmt.Printf("\n")
 
+	var connStr string
 	if len(args) < 1 {
-		return errors.New("You must specify a connection string for your cluster")
+		connStr = "couchbase://localhost"
+		gLog.Warn("No connection string specified, defaulting to `%s`", connStr)
+	} else {
+		connStr = args[0]
 	}
 
-	Diagnose(args[0], bucketPasswordArg)
+	Diagnose(connStr, bucketPasswordArg)
 
 	gLog.Log("Diagnostics completed")
 	gLog.NewLine()
@@ -211,7 +215,7 @@ func Diagnose(connStr, bucketPass string) {
 	if connSpecSrv != "" {
 		gLog.Log("Connection string was parsed as a potential DNS SRV record")
 	}
-	
+
 	if connSpec.Scheme == "http" {
 		gLog.Warn(
 			"Connection string is using the deprecated `http://` scheme.  Use" +
