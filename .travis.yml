@@ -1,0 +1,10 @@
+language: go
+
+go:
+  - 1.7.x
+
+script:
+  - go test ./
+  - GOOS=darwin GOARCH=amd64 go build -o sdk-doctor-darwin
+  - GOOS=linux GOARCH=amd64 go build -o sdk-doctor-linux
+  - GOOS=windows GOARCH=amd64 go build -o sdk-doctor-windows.exe
