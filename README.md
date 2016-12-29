@@ -3,6 +3,8 @@
     \__ \ |) | ' <___| |) | (_) | (__  | || (_) |   /
     |___/___/|_|\_\  |___/ \___/ \___| |_| \___/|_|_\
 
+[![Build Status](https://travis-ci.org/couchbaselabs/sdk-doctor.svg?branch=master)](https://travis-ci.org/couchbaselabs/sdk-doctor)
+
 SDK doctor helps diagnose application-server-side connectivity issues with your Couchbase Cluster (among other things)...
 
 ### How To Use
