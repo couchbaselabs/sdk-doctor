@@ -3,8 +3,13 @@ language: go
 go:
   - 1.7.x
 
+install:
+  - GOOS=darwin GOARCH=amd64 go get -t ./...
+  - GOOS=linux GOARCH=amd64 go get -t ./...
+  - GOOS=windows GOARCH=amd64 go get -t ./...
+
 script:
   - go test ./
-  - GOOS=darwin GOARCH=amd64 go build -o sdk-doctor-macos
-  - GOOS=linux GOARCH=amd64 go build -o sdk-doctor-linux
-  - GOOS=windows GOARCH=amd64 go build -o sdk-doctor-windows.exe
+  - GOOS=darwin GOARCH=amd64 go build ./... -o sdk-doctor-macos
+  - GOOS=linux GOARCH=amd64 go build ./... -o sdk-doctor-linux
+  - GOOS=windows GOARCH=amd64 go build ./... -o sdk-doctor-windows.exe
