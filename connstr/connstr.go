@@ -1,12 +1,12 @@
 package connstr
 
 import (
-	"net/url"
-	"fmt"
 	"errors"
+	"fmt"
+	"net"
+	"net/url"
 	"regexp"
 	"strconv"
-	"net"
 )
 
 type HostPortPair struct {
@@ -15,9 +15,9 @@ type HostPortPair struct {
 }
 
 type ConnSpec struct {
-	Scheme string
-	Hosts []HostPortPair
-	Bucket string
+	Scheme  string
+	Hosts   []HostPortPair
+	Bucket  string
 	Options url.Values
 }
 
@@ -66,11 +66,11 @@ func (spec ConnSpec) String() string {
 }
 
 type ResolvedConnSpec struct {
-	UseSsl bool
+	UseSsl    bool
 	CccpHosts []HostPortPair
 	HttpHosts []HostPortPair
-	Bucket string
-	Options url.Values
+	Bucket    string
+	Options   url.Values
 }
 
 func Parse(connStr string) (out ConnSpec, err error) {
@@ -203,7 +203,6 @@ func ResolveAsHostList(spec ConnSpec) (out ResolvedConnSpec, err error) {
 	} else {
 		out.Bucket = "default"
 	}
-
 
 	out.Options = spec.Options
 

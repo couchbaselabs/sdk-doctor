@@ -1,16 +1,16 @@
 package cmd
 
 import (
+	"bytes"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/couchbaselabs/sdk-doctor/connstr"
+	"github.com/couchbaselabs/sdk-doctor/helpers"
 	"github.com/spf13/cobra"
 	"io/ioutil"
-	"bytes"
-	"errors"
-	"encoding/json"
 	"net"
 	"net/http"
-	"github.com/couchbaselabs/sdk-doctor/helpers"
-	"github.com/couchbaselabs/sdk-doctor/connstr"
 	"time"
 )
 
@@ -39,9 +39,9 @@ var gLog helpers.Logger
 func RunDiagnose(cmd *cobra.Command, args []string) error {
 	fmt.Printf(
 		"Note: Diagnostics can only provide accurate results when your cluster\n" +
-		" is in a stable state.  Active rebalancing and other cluster configuration\n" +
-		" changes can cause the output of the doctor to be inconsistent or in the\n" +
-		" worst cases, completely incorrect.\n")
+			" is in a stable state.  Active rebalancing and other cluster configuration\n" +
+			" changes can cause the output of the doctor to be inconsistent or in the\n" +
+			" worst cases, completely incorrect.\n")
 	fmt.Printf("\n")
 
 	var connStr string
@@ -62,38 +62,37 @@ func RunDiagnose(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-
 type ClusterConfigNode struct {
-	OptNode string `json:"optNode"`
-	ThisNode bool `json:"thisNode"`
-	CouchApiBase string `json:"couchApiBase"`
-	CouchApiBaseHTTPS string `json:"couchApiBaseHTTPS"`
-	Status string `json:"status"`
-	Hostname string `json:"hostname"`
-	Version string `json:"version"`
-	Os string `json:"os"`
-	Ports map[string]int `json:"Ports"`
-	Services []string `json:"services"`
+	OptNode           string         `json:"optNode"`
+	ThisNode          bool           `json:"thisNode"`
+	CouchApiBase      string         `json:"couchApiBase"`
+	CouchApiBaseHTTPS string         `json:"couchApiBaseHTTPS"`
+	Status            string         `json:"status"`
+	Hostname          string         `json:"hostname"`
+	Version           string         `json:"version"`
+	Os                string         `json:"os"`
+	Ports             map[string]int `json:"Ports"`
+	Services          []string       `json:"services"`
 }
 
 type ClusterConfig struct {
-	Nodes []ClusterConfigNode `json:"nodes"`
+	Nodes   []ClusterConfigNode `json:"nodes"`
 	Buckets struct {
-			  Uri string `json:"uri"`
-		  } `json:"buckets"`
+		Uri string `json:"uri"`
+	} `json:"buckets"`
 }
 
 type BucketConfigNodeExt struct {
-	ThisNode bool `json:"thisNode"`
-	Hostname string `json:"hostname"`
+	ThisNode bool           `json:"thisNode"`
+	Hostname string         `json:"hostname"`
 	Services map[string]int `json:"services"`
 }
 
 type TerseBucketConfig struct {
 	SourceHost string
-	Uuid string `json:"uuid"`
-	Rev uint `json:"rev"`
-	NodesExt []BucketConfigNodeExt `json:"nodesExt"`
+	Uuid       string                `json:"uuid"`
+	Rev        uint                  `json:"rev"`
+	NodesExt   []BucketConfigNodeExt `json:"nodesExt"`
 }
 
 func (config *TerseBucketConfig) GetSourceNodeExt() *BucketConfigNodeExt {
@@ -219,7 +218,7 @@ func Diagnose(connStr, bucketPass string) {
 	if connSpec.Scheme == "http" {
 		gLog.Warn(
 			"Connection string is using the deprecated `http://` scheme.  Use" +
-			" the `couchbase://` scheme instead!")
+				" the `couchbase://` scheme instead!")
 	}
 
 	resConnSpec, err := connstr.Resolve(connSpec)
@@ -244,7 +243,6 @@ func Diagnose(connStr, bucketPass string) {
 
 	gLog.Log("Connection string specifies bucket `%s`", resConnSpec.Bucket)
 
-
 	//======================================================================
 	//  DNS
 	//======================================================================
@@ -265,16 +263,16 @@ func Diagnose(connStr, bucketPass string) {
 		if len(srvAddrs) > 0 && len(aAddrs) > 0 {
 			gLog.Warn(
 				"The hostname specified in your connection string resolves both for SRV" +
-				" records, as well as A records.  This is not suggested as later DNS" +
-				" configuration changes could cause the wrong servers to be contacted")
+					" records, as well as A records.  This is not suggested as later DNS" +
+					" configuration changes could cause the wrong servers to be contacted")
 		}
 	}
 
 	if warnSingleHost {
 		gLog.Warn(
 			"Your connection string specifies only a single host.  You should" +
-			" consider adding additional static nodes from your cluster to this" +
-			" list to improve your applications fault-tolerance")
+				" consider adding additional static nodes from your cluster to this" +
+				" list to improve your applications fault-tolerance")
 	}
 
 	for _, target := range connSpec.Hosts {
@@ -304,9 +302,9 @@ func Diagnose(connStr, bucketPass string) {
 			continue
 		} else if len(addrs) > 1 {
 			gLog.Warn(
-				"Bootstrap host `%s` has more than one single DNS entry associated.  While this" +
-				" is not neccessarily an error, it has been known to cause difficult-to-diagnose" +
-				" problems in the future when routing is changed or the cluster layout is updated.",
+				"Bootstrap host `%s` has more than one single DNS entry associated.  While this"+
+					" is not neccessarily an error, it has been known to cause difficult-to-diagnose"+
+					" problems in the future when routing is changed or the cluster layout is updated.",
 				target.Host)
 		} else if addrs[0] != target.Host {
 			gLog.Log(
@@ -315,17 +313,15 @@ func Diagnose(connStr, bucketPass string) {
 		}
 	}
 
-
 	//======================================================================
 	//  SSL
 	//======================================================================
 	if resConnSpec.UseSsl {
 		gLog.Warn(
 			"The FTS service within Couchbase Server is not currently capable" +
-			" of serving data through SSL.  As this is the case, your application will" +
-			" not be able to perform FTS queries with your SSL bootstrap configuration.")
+				" of serving data through SSL.  As this is the case, your application will" +
+				" not be able to perform FTS queries with your SSL bootstrap configuration.")
 	}
-
 
 	//======================================================================
 	//  BOOTSTRAP
@@ -354,9 +350,9 @@ func Diagnose(connStr, bucketPass string) {
 			} else {
 				if config.Uuid != masterConfig.Uuid {
 					gLog.Error(
-						"Boostrap host `%s` appears to be pointing to a different cluster.  Tests" +
-						" will be running against the first successfully connected node in your" +
-						" bootstrap list, as a client would behave.",
+						"Boostrap host `%s` appears to be pointing to a different cluster.  Tests"+
+							" will be running against the first successfully connected node in your"+
+							" bootstrap list, as a client would behave.",
 						target.Host)
 				}
 			}
@@ -364,9 +360,9 @@ func Diagnose(connStr, bucketPass string) {
 			thisNodeExt := config.GetSourceNodeExt()
 			if thisNodeExt.Hostname != "" && target.Host != thisNodeExt.Hostname {
 				gLog.Warn(
-					"Bootstrap host `%s` is not using the canonical node hostname of `%s`.  This" +
-					" is not neccessarily an error, but has been known to result in strange and" +
-					" difficult-to-diagnose errors in the future when routing gets changed.",
+					"Bootstrap host `%s` is not using the canonical node hostname of `%s`.  This"+
+						" is not neccessarily an error, but has been known to result in strange and"+
+						" difficult-to-diagnose errors in the future when routing gets changed.",
 					target.Host, thisNodeExt.Hostname)
 			}
 		}
@@ -395,7 +391,6 @@ func Diagnose(connStr, bucketPass string) {
 
 					continue
 				}
-
 
 				configs[i] = &config
 			}
@@ -454,21 +449,19 @@ func Diagnose(connStr, bucketPass string) {
 		}
 	}
 
-
 	// Failed to bootstrap
 	if nodesList == nil {
 		gLog.Error(
 			"All endpoints specified by your connection string were unreachable, further" +
-			" cluster diagnostics are not possible")
+				" cluster diagnostics are not possible")
 		return
 	}
 
 	if configSource != "cccp" {
 		gLog.Warn(
 			"Your configuration was fetched via a non-optimal path, you should update your" +
-			" connection string and/or cluster configuration to allow CCCP config fetch")
+				" connection string and/or cluster configuration to allow CCCP config fetch")
 	}
-
 
 	//======================================================================
 	//  CLUSTER INFORMATION
@@ -509,7 +502,6 @@ func Diagnose(connStr, bucketPass string) {
 			}
 		}
 	}
-
 
 	//======================================================================
 	//  SERVICES
@@ -585,7 +577,6 @@ func Diagnose(connStr, bucketPass string) {
 		}
 	}
 
-
 	//======================================================================
 	//  CONNECTION PERFORMANCE
 	//======================================================================
@@ -612,28 +603,28 @@ func Diagnose(connStr, bucketPass string) {
 				gLog.Log("Memd Nop Pinged `%s:%d` %d times, %d errors, %dms min, %dms max, %dms mean",
 					node.Hostname, node.Services["kv"],
 					stats.Count(), stats.Errors(),
-					stats.Min() / time.Millisecond,
-					stats.Max() / time.Millisecond,
-					stats.Mean() / time.Millisecond)
+					stats.Min()/time.Millisecond,
+					stats.Max()/time.Millisecond,
+					stats.Mean()/time.Millisecond)
 
 				allowedMeanMs := 10
-				if stats.Mean() >= time.Duration(allowedMeanMs) * time.Millisecond {
+				if stats.Mean() >= time.Duration(allowedMeanMs)*time.Millisecond {
 					gLog.Warn(
-						"Memcached service on `%s:%d` took longer than %dms (was: %dms) on average to" +
-						" reply.  This is usually due to network-related issues, and could significantly" +
-						" affect application performance.",
+						"Memcached service on `%s:%d` took longer than %dms (was: %dms) on average to"+
+							" reply.  This is usually due to network-related issues, and could significantly"+
+							" affect application performance.",
 						node.Hostname, node.Services["kv"],
-						allowedMeanMs, stats.Mean() / time.Millisecond)
+						allowedMeanMs, stats.Mean()/time.Millisecond)
 				}
 
 				allowedMaxMs := 20
-				if stats.Max() >= time.Duration(allowedMaxMs) * time.Millisecond {
+				if stats.Max() >= time.Duration(allowedMaxMs)*time.Millisecond {
 					gLog.Warn(
-						"Memcached service on `%s:%d` took longer than %dms (was: %dms) to reply." +
-						" This is usually due to network-related issues, and could significantly" +
-						" affect application performance.",
+						"Memcached service on `%s:%d` took longer than %dms (was: %dms) to reply."+
+							" This is usually due to network-related issues, and could significantly"+
+							" affect application performance.",
 						node.Hostname, node.Services["kv"],
-						allowedMaxMs, stats.Max() / time.Millisecond)
+						allowedMaxMs, stats.Max()/time.Millisecond)
 				}
 			}
 		} else {
@@ -641,4 +632,3 @@ func Diagnose(connStr, bucketPass string) {
 		}
 	}
 }
-

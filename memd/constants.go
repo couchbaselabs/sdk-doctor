@@ -18,7 +18,7 @@ const (
 	CmdDelete               = CommandCode(0x04)
 	CmdIncrement            = CommandCode(0x05)
 	CmdDecrement            = CommandCode(0x06)
-	CmdNop					= CommandCode(0x0a)
+	CmdNop                  = CommandCode(0x0a)
 	CmdAppend               = CommandCode(0x0e)
 	CmdPrepend              = CommandCode(0x0f)
 	CmdStat                 = CommandCode(0x10)

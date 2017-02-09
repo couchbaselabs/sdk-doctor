@@ -1,11 +1,11 @@
 package helpers
 
 import (
-	"github.com/couchbaselabs/sdk-doctor/memd"
-	"fmt"
-	"time"
 	"errors"
+	"fmt"
+	"github.com/couchbaselabs/sdk-doctor/memd"
 	"strings"
+	"time"
 )
 
 type MemdClient struct {
@@ -50,7 +50,7 @@ func (client *MemdClient) auth(user, pass string) error {
 	var resp memd.MemdResponse
 
 	err := client.conn.WritePacket(&memd.MemdRequest{
-		Magic: memd.ReqMagic,
+		Magic:  memd.ReqMagic,
 		Opcode: memd.CmdSASLListMechs,
 	})
 	if err != nil {
@@ -89,10 +89,10 @@ func (client *MemdClient) auth(user, pass string) error {
 	copy(authData[1+len(userBuf)+1:], passBuf)
 
 	err = client.conn.WritePacket(&memd.MemdRequest{
-		Magic: memd.ReqMagic,
+		Magic:  memd.ReqMagic,
 		Opcode: memd.CmdSASLAuth,
-		Key: []byte("PLAIN"),
-		Value: authData,
+		Key:    []byte("PLAIN"),
+		Value:  authData,
 	})
 	if err != nil {
 		return err
@@ -118,9 +118,9 @@ func (client *MemdClient) selectBucket(bucket string) error {
 	var resp memd.MemdResponse
 
 	err := client.conn.WritePacket(&memd.MemdRequest{
-		Magic: memd.ReqMagic,
+		Magic:  memd.ReqMagic,
 		Opcode: memd.CmdSelectBucket,
-		Value: []byte(bucket),
+		Value:  []byte(bucket),
 	})
 	if err != nil {
 		return err
@@ -142,7 +142,7 @@ func (client *MemdClient) GetConfig() ([]byte, error) {
 	var resp memd.MemdResponse
 
 	err := client.conn.WritePacket(&memd.MemdRequest{
-		Magic: memd.ReqMagic,
+		Magic:  memd.ReqMagic,
 		Opcode: memd.CmdGetClusterConfig,
 	})
 	if err != nil {
@@ -165,7 +165,7 @@ func (client *MemdClient) Ping() error {
 	var resp memd.MemdResponse
 
 	client.conn.WritePacket(&memd.MemdRequest{
-		Magic: memd.ReqMagic,
+		Magic:  memd.ReqMagic,
 		Opcode: memd.CmdNop,
 	})
 

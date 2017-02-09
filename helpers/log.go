@@ -7,14 +7,14 @@ import (
 )
 
 type Logger struct {
-	warns []string
+	warns  []string
 	errors []string
 }
 
 func timeLogStr() string {
 	t := time.Now()
 	return fmt.Sprintf("%02d:%02d:%02d.%03d",
-		t.Hour(), t.Minute(), t.Second(), t.Nanosecond() / int(time.Millisecond))
+		t.Hour(), t.Minute(), t.Second(), t.Nanosecond()/int(time.Millisecond))
 }
 
 func (l *Logger) NewLine() {

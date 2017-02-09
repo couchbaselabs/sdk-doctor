@@ -3,12 +3,12 @@ package helpers
 import "time"
 
 type PingHelper struct {
-	count int
+	count        int
 	successCount int
-	errorCount int
-	min time.Duration
-	max time.Duration
-	sum time.Duration
+	errorCount   int
+	min          time.Duration
+	max          time.Duration
+	sum          time.Duration
 }
 
 type PingState time.Time
