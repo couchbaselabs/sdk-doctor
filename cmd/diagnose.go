@@ -457,6 +457,32 @@ func Diagnose(connStr, bucketPass string) {
 		return
 	}
 
+	gLog.Log("Identified the following nodes:")
+	for i, target := range nodesList {
+		gLog.Log("  [%d] %s", i, target.Hostname)
+
+		serviceStr := ""
+		serviceNum := 0
+		for service, port := range target.Services {
+			if serviceStr != "" {
+				serviceStr += ", "
+			}
+
+			serviceStr += fmt.Sprintf("%20s:% 6d", service, port)
+
+			if serviceNum%3 == 2 {
+				gLog.Log("    %s", serviceStr)
+				serviceStr = ""
+			}
+
+			serviceNum++
+		}
+
+		if serviceStr != "" {
+			gLog.Log("    %s", serviceStr)
+		}
+	}
+
 	if configSource != "cccp" {
 		gLog.Warn(
 			"Your configuration was fetched via a non-optimal path, you should update your" +
@@ -477,6 +503,8 @@ func Diagnose(connStr, bucketPass string) {
 				break
 			}
 		}
+
+		gLog.Log("Fetching config from `%s:%d`", infoSourceTarget.Hostname, infoSourceTarget.Services["mgmt"])
 
 		if infoSourceTarget == nil {
 			gLog.Log("Failed to retrieve cluster information as we couldn't find a node with management services")
