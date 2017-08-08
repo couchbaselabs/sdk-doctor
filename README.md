@@ -21,7 +21,7 @@ It is recommended that you use the actual connection string from your planned ap
 The build steps are similar to most go programs.  Given a properly set up go build environment:
 
 ```
-$ go get https://github.com/couchbaselabs/sdk-doctor
+$ go get github.com/couchbaselabs/sdk-doctor
 $ cd $GOPATH/src/github.com/couchbaselabs/sdk-doctor
 $ go build
 $ ./sdk-doctor -h
