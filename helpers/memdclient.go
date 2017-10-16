@@ -120,7 +120,7 @@ func (client *MemdClient) selectBucket(bucket string) error {
 	err := client.conn.WritePacket(&memd.MemdRequest{
 		Magic:  memd.ReqMagic,
 		Opcode: memd.CmdSelectBucket,
-		Value:  []byte(bucket),
+		Key:  []byte(bucket),
 	})
 	if err != nil {
 		return err
