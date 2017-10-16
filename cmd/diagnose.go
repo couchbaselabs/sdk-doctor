@@ -311,6 +311,22 @@ func Diagnose(connStr, bucketPass string) {
 				"Bootstrap host `%s` refers to a server with the address `%s`",
 				target.Host, addrs[0])
 		}
+
+		// Check for any IPv6 addresses
+		ips, _ := net.LookupIP(target.Host)
+
+		hasIPv6 := false
+		for _, ip := range ips {
+			if ip.To4() == nil {
+				hasIPv6 = true
+			}
+		}
+		if hasIPv6 {
+			gLog.Warn(
+				"Bootstrap host `%s` has IPv6 addresses associated. This is not a supported"+
+					" configuration and will likely cause SDK connection errors.",
+					target.Host)
+		}
 	}
 
 	//======================================================================
