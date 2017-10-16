@@ -16,6 +16,11 @@ sdk-doctor diagnose couchbase://127.0.0.1/default
 
 It is recommended that you use the actual connection string from your planned application.
 
+For 5.0+ production clusters configured with the suggested security standards, you will also need to specify a username and password.
+
+```bash
+sdk-doctor diagnose couchbase://127.0.0.1/default -u Administrator -p password
+```
 
 ### How To Build
 The build steps are similar to most go programs.  Given a properly set up go build environment:
