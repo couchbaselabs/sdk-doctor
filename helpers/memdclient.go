@@ -13,6 +13,10 @@ type MemdClient struct {
 }
 
 func Dial(host string, port int, bucket, user, pass string) (*MemdClient, error) {
+	if user == "" {
+		user = bucket
+	}
+
 	address := fmt.Sprintf("%s:%d", host, port)
 
 	deadline := time.Now().Add(time.Millisecond * 2000)
@@ -108,7 +112,7 @@ func (client *MemdClient) auth(user, pass string) error {
 			return errors.New("invalid bucket name/password")
 		}
 
-		return errors.New(fmt.Sprintf("SASL auth failed (status: %d)", resp.Status))
+		return errors.New(fmt.Sprintf("SASL auth failed for user `%s` (status: %d)", user, resp.Status))
 	}
 
 	return nil
@@ -132,7 +136,7 @@ func (client *MemdClient) selectBucket(bucket string) error {
 	}
 
 	if resp.Status != 0 {
-		return errors.New(fmt.Sprintf("failed to select bucket (status: %d)", resp.Status))
+		return errors.New(fmt.Sprintf("failed to select bucket `%s` (status: %d)", bucket, resp.Status))
 	}
 
 	return nil

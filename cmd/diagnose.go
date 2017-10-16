@@ -25,13 +25,17 @@ in development or production environments.`,
 }
 
 var (
+	usernameArg string
+	passwordArg string
 	bucketPasswordArg string
 )
 
 func init() {
 	RootCmd.AddCommand(diagnoseCmd)
 
-	diagnoseCmd.PersistentFlags().StringVarP(&bucketPasswordArg, "bucket-password", "p", "", "bucket password")
+	diagnoseCmd.PersistentFlags().StringVarP(&usernameArg, "username", "u", "", "username")
+	diagnoseCmd.PersistentFlags().StringVarP(&passwordArg, "password", "p", "", "password")
+	diagnoseCmd.PersistentFlags().StringVarP(&bucketPasswordArg, "bucket-password", "z", "", "bucket password (deprecated, use password instead)")
 }
 
 var gLog helpers.Logger
@@ -52,7 +56,10 @@ func RunDiagnose(cmd *cobra.Command, args []string) error {
 		connStr = args[0]
 	}
 
-	Diagnose(connStr, bucketPasswordArg)
+	if passwordArg == "" && bucketPasswordArg != "" {
+		passwordArg = bucketPasswordArg
+	}
+	Diagnose(connStr, usernameArg, passwordArg)
 
 	gLog.Log("Diagnostics completed")
 	gLog.NewLine()
@@ -130,7 +137,11 @@ func ClusterNodesFromTerseBucketConfig(config TerseBucketConfig) []ClusterNode {
 	return out
 }
 
-func FetchHttpTerseBucketConfig(host string, port int, bucket, pass string) (TerseBucketConfig, error) {
+func FetchHttpTerseBucketConfig(host string, port int, bucket, user, pass string) (TerseBucketConfig, error) {
+	if user == "" {
+		user = bucket
+	}
+
 	uri := fmt.Sprintf("http://%s:%d/pools/default/b/%s", host, port, bucket)
 
 	req, err := http.NewRequest("GET", uri, nil)
@@ -138,7 +149,7 @@ func FetchHttpTerseBucketConfig(host string, port int, bucket, pass string) (Ter
 		return TerseBucketConfig{}, err
 	}
 
-	req.SetBasicAuth(bucket, pass)
+	req.SetBasicAuth(user, pass)
 
 	var httpClient http.Client
 	httpClient.Timeout = time.Millisecond * 2000
@@ -174,8 +185,12 @@ func FetchHttpTerseBucketConfig(host string, port int, bucket, pass string) (Ter
 	return config, nil
 }
 
-func FetchCccpTerseBucketConfig(host string, port int, bucket, pass string) (TerseBucketConfig, error) {
-	client, err := helpers.Dial(host, port, bucket, bucket, pass)
+func FetchCccpTerseBucketConfig(host string, port int, bucket, user, pass string) (TerseBucketConfig, error) {
+	if user == "" {
+		user = bucket
+	}
+
+	client, err := helpers.Dial(host, port, bucket, user, pass)
 	if err != nil {
 		return TerseBucketConfig{}, err
 	}
@@ -198,7 +213,7 @@ func FetchCccpTerseBucketConfig(host string, port int, bucket, pass string) (Ter
 	return config, nil
 }
 
-func Diagnose(connStr, bucketPass string) {
+func Diagnose(connStr, username, password string) {
 	//======================================================================
 	//  CONNECTION STRING
 	//======================================================================
@@ -399,7 +414,7 @@ func Diagnose(connStr, bucketPass string) {
 				gLog.Log("Attempting to fetch config via cccp from `%s:%d`", target.Host, target.Port)
 
 				// Query the host
-				config, err := FetchCccpTerseBucketConfig(target.Host, target.Port, resConnSpec.Bucket, bucketPass)
+				config, err := FetchCccpTerseBucketConfig(target.Host, target.Port, resConnSpec.Bucket, username, password)
 				if err != nil {
 					gLog.Error(
 						"Failed to fetch configuration via cccp from `%s:%d` (error: %s)",
@@ -432,7 +447,7 @@ func Diagnose(connStr, bucketPass string) {
 				gLog.Log("Attempting to fetch terse config via http from `%s:%d`", target.Host, target.Port)
 
 				// Query the host
-				config, err := FetchHttpTerseBucketConfig(target.Host, target.Port, resConnSpec.Bucket, bucketPass)
+				config, err := FetchHttpTerseBucketConfig(target.Host, target.Port, resConnSpec.Bucket, username, password)
 				if err != nil {
 					gLog.Error(
 						"Failed to fetch terse configuration via http from `%s:%d` (error: %s)",
@@ -557,7 +572,7 @@ func Diagnose(connStr, bucketPass string) {
 		if !resConnSpec.UseSsl {
 			if node.Services["kv"] != 0 {
 				client, err := helpers.Dial(node.Hostname, node.Services["kv"],
-					resConnSpec.Bucket, resConnSpec.Bucket, bucketPass)
+					resConnSpec.Bucket, username, password)
 				if err != nil {
 					gLog.Error("Failed to connect to KV service at `%s:%d` (error: %s)",
 						node.Hostname, node.Services["kv"], err.Error())
@@ -628,7 +643,7 @@ func Diagnose(connStr, bucketPass string) {
 		if !resConnSpec.UseSsl {
 			if node.Services["kv"] != 0 {
 				client, err := helpers.Dial(node.Hostname, node.Services["kv"],
-					resConnSpec.Bucket, resConnSpec.Bucket, bucketPass)
+					resConnSpec.Bucket, username, password)
 				if err != nil {
 					gLog.Warn(
 						"Failed to perform KV connection performance analysis on `%s:%d` (error: %d)",
