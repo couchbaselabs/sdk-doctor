@@ -25,8 +25,8 @@ in development or production environments.`,
 }
 
 var (
-	usernameArg string
-	passwordArg string
+	usernameArg       string
+	passwordArg       string
 	bucketPasswordArg string
 )
 
@@ -266,6 +266,7 @@ func Diagnose(connStr, username, password string) {
 		warnSingleHost = true
 	}
 
+	dnsHosts := connSpec.Hosts
 	if connSpecSrv != "" {
 		_, srvAddrs, _ := net.LookupSRV("", "", connSpecSrv)
 		aAddrs, _ := net.LookupHost(connSpec.Hosts[0].Host)
@@ -273,6 +274,12 @@ func Diagnose(connStr, username, password string) {
 		if len(srvAddrs) > 0 {
 			// Don't warn for single-hosts if using DNS SRV
 			warnSingleHost = false
+
+			// Replace the hosts for DNS testing with the values from the DNS SRV record
+			dnsHosts = []connstr.HostPortPair{}
+			for _, addr := range srvAddrs {
+				dnsHosts = append(dnsHosts, connstr.HostPortPair{addr.Target, int(addr.Port)})
+			}
 		}
 
 		if len(srvAddrs) > 0 && len(aAddrs) > 0 {
@@ -290,7 +297,7 @@ func Diagnose(connStr, username, password string) {
 				" list to improve your applications fault-tolerance")
 	}
 
-	for _, target := range connSpec.Hosts {
+	for _, target := range dnsHosts {
 
 		gLog.Log("Performing DNS lookup for host `%s`", target.Host)
 
@@ -340,7 +347,7 @@ func Diagnose(connStr, username, password string) {
 			gLog.Warn(
 				"Bootstrap host `%s` has IPv6 addresses associated. This is not a supported"+
 					" configuration and will likely cause SDK connection errors.",
-					target.Host)
+				target.Host)
 		}
 	}
 
