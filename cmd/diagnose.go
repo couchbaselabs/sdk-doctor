@@ -28,6 +28,7 @@ var (
 	usernameArg string
 	passwordArg string
 	bucketPasswordArg string
+	reverseProxyModeArg bool
 )
 
 func init() {
@@ -36,6 +37,7 @@ func init() {
 	diagnoseCmd.PersistentFlags().StringVarP(&usernameArg, "username", "u", "", "username")
 	diagnoseCmd.PersistentFlags().StringVarP(&passwordArg, "password", "p", "", "password")
 	diagnoseCmd.PersistentFlags().StringVarP(&bucketPasswordArg, "bucket-password", "z", "", "bucket password (deprecated, use password instead)")
+	diagnoseCmd.PersistentFlags().BoolVar(&reverseProxyModeArg, "reverse-proxy", false, "bootstrap via HTTP reverse proxy")
 }
 
 var gLog helpers.Logger
@@ -56,10 +58,16 @@ func RunDiagnose(cmd *cobra.Command, args []string) error {
 		connStr = args[0]
 	}
 
+	if (reverseProxyModeArg) {
+		gLog.Log("Running tests using reverse proxy mode.  This assumes that the" + 
+			" connection string references a reverse HTTP proxy on port 8091" +
+			" which forwards traffic to all nodes in the cluster.")
+	}
+
 	if passwordArg == "" && bucketPasswordArg != "" {
 		passwordArg = bucketPasswordArg
 	}
-	Diagnose(connStr, usernameArg, passwordArg)
+	Diagnose(connStr, usernameArg, passwordArg, reverseProxyModeArg)
 
 	gLog.Log("Diagnostics completed")
 	gLog.NewLine()
@@ -213,7 +221,7 @@ func FetchCccpTerseBucketConfig(host string, port int, bucket, user, pass string
 	return config, nil
 }
 
-func Diagnose(connStr, username, password string) {
+func Diagnose(connStr, username, password string, reverseProxyMode bool) {
 	//======================================================================
 	//  CONNECTION STRING
 	//======================================================================
@@ -262,7 +270,7 @@ func Diagnose(connStr, username, password string) {
 	//  DNS
 	//======================================================================
 	warnSingleHost := false
-	if len(connSpec.Hosts) == 1 {
+	if len(connSpec.Hosts) == 1 && !reverseProxyMode {
 		warnSingleHost = true
 	}
 
@@ -290,6 +298,13 @@ func Diagnose(connStr, username, password string) {
 				" list to improve your applications fault-tolerance")
 	}
 
+	if len(connSpec.Hosts) > 1 && reverseProxyMode {
+		gLog.Warn(
+			"Your connection string specifies more than one host in reverse proxy mode." +
+				"  This may be in error, normally the reverse proxy is responsible" +
+				" for forwarding traffic to all nodes in the cluster.")
+	}
+
 	for _, target := range connSpec.Hosts {
 
 		gLog.Log("Performing DNS lookup for host `%s`", target.Host)
@@ -315,7 +330,7 @@ func Diagnose(connStr, username, password string) {
 				"Bootstrap host `%s` does not have a valid DNS entry.",
 				target.Host)
 			continue
-		} else if len(addrs) > 1 {
+		} else if len(addrs) > 1 && !reverseProxyMode {
 			gLog.Warn(
 				"Bootstrap host `%s` has more than one single DNS entry associated.  While this"+
 					" is not neccessarily an error, it has been known to cause difficult-to-diagnose"+
@@ -388,13 +403,15 @@ func Diagnose(connStr, username, password string) {
 				}
 			}
 
-			thisNodeExt := config.GetSourceNodeExt()
-			if thisNodeExt.Hostname != "" && target.Host != thisNodeExt.Hostname {
-				gLog.Warn(
-					"Bootstrap host `%s` is not using the canonical node hostname of `%s`.  This"+
-						" is not neccessarily an error, but has been known to result in strange and"+
-						" difficult-to-diagnose errors in the future when routing gets changed.",
-					target.Host, thisNodeExt.Hostname)
+			if !reverseProxyMode {
+				thisNodeExt := config.GetSourceNodeExt()
+				if thisNodeExt.Hostname != "" && target.Host != thisNodeExt.Hostname {
+					gLog.Warn(
+						"Bootstrap host `%s` is not using the canonical node hostname of `%s`.  This"+
+							" is not neccessarily an error, but has been known to result in strange and"+
+							" difficult-to-diagnose errors in the future when routing gets changed.",
+						target.Host, thisNodeExt.Hostname)
+				}
 			}
 		}
 
@@ -405,6 +422,8 @@ func Diagnose(connStr, username, password string) {
 	if nodesList == nil {
 		if len(resConnSpec.CccpHosts) == 0 {
 			gLog.Log("Not attempting CCCP, as the connection string does not support it")
+		} else if reverseProxyMode {
+			gLog.Log("Not attempting CCCP, as reverse proxy mode does not support it")
 		} else {
 			gLog.Log("Attempting to connect to cluster via CCCP")
 
@@ -514,7 +533,7 @@ func Diagnose(connStr, username, password string) {
 		}
 	}
 
-	if configSource != "cccp" {
+	if configSource != "cccp" && !reverseProxyMode {
 		gLog.Warn(
 			"Your configuration was fetched via a non-optimal path, you should update your" +
 				" connection string and/or cluster configuration to allow CCCP config fetch")
