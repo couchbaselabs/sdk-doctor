@@ -27,6 +27,13 @@ For 5.0+ production clusters configured with the suggested security standards, y
 sdk-doctor diagnose couchbase://127.0.0.1/default -u Administrator -p password
 ```
 
+For clusters using an HTTP reverse proxy or load balancer for bootstrapping (instead of CCCP), use the `--reverse-proxy` flag.
+This suppresses certain tests which don't apply to this configuration.
+
+```bash
+sdk-doctor diagnose couchbase://127.0.0.1/default --reverse-proxy
+```
+
 ### How To Build
 The build steps are similar to most go programs.  Given a properly set up go build environment:
 
