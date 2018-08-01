@@ -5,13 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/couchbaselabs/sdk-doctor/connstr"
-	"github.com/couchbaselabs/sdk-doctor/helpers"
-	"github.com/spf13/cobra"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"time"
+
+	"github.com/couchbaselabs/sdk-doctor/connstr"
+	"github.com/couchbaselabs/sdk-doctor/helpers"
+	"github.com/spf13/cobra"
 )
 
 // diagnoseCmd represents the diagnose command
