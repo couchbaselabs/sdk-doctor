@@ -8,12 +8,20 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
-	"github.com/couchbaselabs/sdk-doctor/connstr"
+	"github.com/couchbaselabs/gocbconnstr"
 	"github.com/couchbaselabs/sdk-doctor/helpers"
 	"github.com/spf13/cobra"
 )
+
+func stripIPv6Address(address string) string {
+	if strings.HasPrefix(address, "[") && strings.HasSuffix(address, "]") {
+		return address[1 : len(address)-1]
+	}
+	return address
+}
 
 // diagnoseCmd represents the diagnose command
 var diagnoseCmd = &cobra.Command{
@@ -220,7 +228,7 @@ func Diagnose(connStr, username, password string) {
 	//======================================================================
 	gLog.Log("Parsing connection string `%s`", connStr)
 
-	connSpec, err := connstr.Parse(connStr)
+	connSpec, err := gocbconnstr.Parse(connStr)
 	if err != nil {
 		gLog.Error("Failed to parse connection string of `%s` (error: %s)",
 			connStr, err.Error())
@@ -237,7 +245,7 @@ func Diagnose(connStr, username, password string) {
 				" the `couchbase://` scheme instead!")
 	}
 
-	resConnSpec, err := connstr.Resolve(connSpec)
+	resConnSpec, err := gocbconnstr.Resolve(connSpec)
 	if err != nil {
 		gLog.Error("Failed to properly resolve connection string `%s` (error: %s)",
 			connStr, err.Error())
@@ -248,7 +256,7 @@ func Diagnose(connStr, username, password string) {
 	}
 
 	gLog.Log("Connection string identifies the following CCCP endpoints:")
-	for i, host := range resConnSpec.CccpHosts {
+	for i, host := range resConnSpec.MemdHosts {
 		gLog.Log("  %d. %s:%d", i+1, host.Host, host.Port)
 	}
 
@@ -263,23 +271,23 @@ func Diagnose(connStr, username, password string) {
 	//  DNS
 	//======================================================================
 	warnSingleHost := false
-	if len(connSpec.Hosts) == 1 {
+	if len(connSpec.Addresses) == 1 {
 		warnSingleHost = true
 	}
 
-	dnsHosts := connSpec.Hosts
+	dnsHosts := connSpec.Addresses
 	if connSpecSrv != "" {
 		_, srvAddrs, _ := net.LookupSRV("", "", connSpecSrv)
-		aAddrs, _ := net.LookupHost(connSpec.Hosts[0].Host)
+		aAddrs, _ := net.LookupHost(connSpec.Addresses[0].Host)
 
 		if len(srvAddrs) > 0 {
 			// Don't warn for single-hosts if using DNS SRV
 			warnSingleHost = false
 
 			// Replace the hosts for DNS testing with the values from the DNS SRV record
-			dnsHosts = []connstr.HostPortPair{}
+			dnsHosts = []gocbconnstr.Address{}
 			for _, addr := range srvAddrs {
-				dnsHosts = append(dnsHosts, connstr.HostPortPair{addr.Target, int(addr.Port)})
+				dnsHosts = append(dnsHosts, gocbconnstr.Address{addr.Target, int(addr.Port)})
 			}
 		}
 
@@ -299,10 +307,11 @@ func Diagnose(connStr, username, password string) {
 	}
 
 	for _, target := range dnsHosts {
+		strippedHost := stripIPv6Address(target.Host)
 
-		gLog.Log("Performing DNS lookup for host `%s`", target.Host)
+		gLog.Log("Performing DNS lookup for host `%s`", strippedHost)
 
-		addrs, err := net.LookupHost(target.Host)
+		addrs, err := net.LookupHost(strippedHost)
 
 		if err != nil {
 			if dnsErr, ok := err.(*net.DNSError); ok {
@@ -321,22 +330,22 @@ func Diagnose(connStr, username, password string) {
 		if err != nil || len(addrs) == 0 {
 			gLog.Error(
 				"Bootstrap host `%s` does not have a valid DNS entry.",
-				target.Host)
+				strippedHost)
 			continue
 		} else if len(addrs) > 1 {
 			gLog.Warn(
 				"Bootstrap host `%s` has more than one single DNS entry associated.  While this"+
 					" is not neccessarily an error, it has been known to cause difficult-to-diagnose"+
 					" problems in the future when routing is changed or the cluster layout is updated.",
-				target.Host)
-		} else if addrs[0] != target.Host {
+				strippedHost)
+		} else if addrs[0] != strippedHost {
 			gLog.Log(
 				"Bootstrap host `%s` refers to a server with the address `%s`",
-				target.Host, addrs[0])
+				strippedHost, addrs[0])
 		}
 
 		// Check for any IPv6 addresses
-		ips, _ := net.LookupIP(target.Host)
+		ips, _ := net.LookupIP(strippedHost)
 
 		hasIPv6 := false
 		for _, ip := range ips {
@@ -348,7 +357,7 @@ func Diagnose(connStr, username, password string) {
 			gLog.Warn(
 				"Bootstrap host `%s` has IPv6 addresses associated. This is not a supported"+
 					" configuration and will likely cause SDK connection errors.",
-				target.Host)
+				strippedHost)
 		}
 	}
 
@@ -370,7 +379,7 @@ func Diagnose(connStr, username, password string) {
 
 	// Scans a list of hosts and configurations and logs any appropriate warnings then returns
 	//  the first good configuration that it actually encounters (or nil if none are found).
-	scanTerseConfigList := func(hosts []connstr.HostPortPair, configs []*TerseBucketConfig) *TerseBucketConfig {
+	scanTerseConfigList := func(hosts []gocbconnstr.Address, configs []*TerseBucketConfig) *TerseBucketConfig {
 		if len(hosts) != len(configs) {
 			panic(0)
 		}
@@ -411,14 +420,14 @@ func Diagnose(connStr, username, password string) {
 
 	// Attempt to bootstrap via CCCP
 	if nodesList == nil {
-		if len(resConnSpec.CccpHosts) == 0 {
+		if len(resConnSpec.MemdHosts) == 0 {
 			gLog.Log("Not attempting CCCP, as the connection string does not support it")
 		} else {
 			gLog.Log("Attempting to connect to cluster via CCCP")
 
-			configs := make([]*TerseBucketConfig, len(resConnSpec.CccpHosts))
+			configs := make([]*TerseBucketConfig, len(resConnSpec.MemdHosts))
 
-			for i, target := range resConnSpec.CccpHosts {
+			for i, target := range resConnSpec.MemdHosts {
 				gLog.Log("Attempting to fetch config via cccp from `%s:%d`", target.Host, target.Port)
 
 				// Query the host
@@ -434,7 +443,7 @@ func Diagnose(connStr, username, password string) {
 				configs[i] = &config
 			}
 
-			masterConfig := scanTerseConfigList(resConnSpec.CccpHosts, configs)
+			masterConfig := scanTerseConfigList(resConnSpec.MemdHosts, configs)
 			if masterConfig != nil {
 				nodesList = ClusterNodesFromTerseBucketConfig(*masterConfig)
 				configSource = "cccp"
