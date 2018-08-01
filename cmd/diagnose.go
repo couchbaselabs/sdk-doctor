@@ -354,9 +354,10 @@ func Diagnose(connStr, username, password string) {
 			}
 		}
 		if hasIPv6 {
-			gLog.Warn(
-				"Bootstrap host `%s` has IPv6 addresses associated. This is not a supported"+
-					" configuration and will likely cause SDK connection errors.",
+			gLog.Log(
+				"Bootstrap host `%s` has IPv6 addresses associated. This is only supported"+
+					" in Couchbase Server 5.5 or later, and must be specifically enabled on"+
+					" the cluster.",
 				strippedHost)
 		}
 	}
