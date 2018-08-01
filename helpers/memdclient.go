@@ -3,9 +3,10 @@ package helpers
 import (
 	"errors"
 	"fmt"
-	"github.com/couchbaselabs/sdk-doctor/memd"
 	"strings"
 	"time"
+
+	"github.com/couchbaselabs/sdk-doctor/memd"
 )
 
 type MemdClient struct {
@@ -124,7 +125,7 @@ func (client *MemdClient) selectBucket(bucket string) error {
 	err := client.conn.WritePacket(&memd.MemdRequest{
 		Magic:  memd.ReqMagic,
 		Opcode: memd.CmdSelectBucket,
-		Key:  []byte(bucket),
+		Key:    []byte(bucket),
 	})
 	if err != nil {
 		return err
