@@ -98,10 +98,16 @@ type ClusterConfig struct {
 	} `json:"buckets"`
 }
 
-type BucketConfigNodeExt struct {
-	ThisNode bool           `json:"thisNode"`
+type BucketConfigAlternateNames struct {
 	Hostname string         `json:"hostname"`
-	Services map[string]int `json:"services"`
+	Ports    map[string]int `json:"ports"`
+}
+
+type BucketConfigNodeExt struct {
+	ThisNode       bool                                  `json:"thisNode"`
+	Hostname       string                                `json:"hostname"`
+	Services       map[string]int                        `json:"services"`
+	AlternateNames map[string]BucketConfigAlternateNames `json:"alternateAddresses"`
 }
 
 type TerseBucketConfig struct {
@@ -126,7 +132,7 @@ type ClusterNode struct {
 	Services map[string]int
 }
 
-func ClusterNodesFromTerseBucketConfig(config TerseBucketConfig) []ClusterNode {
+func ClusterNodesFromTerseBucketConfig(config TerseBucketConfig, networkType string) []ClusterNode {
 	var out []ClusterNode
 
 	for _, node := range config.NodesExt {
@@ -140,10 +146,44 @@ func ClusterNodesFromTerseBucketConfig(config TerseBucketConfig) []ClusterNode {
 
 		newNode.Services = node.Services
 
+		if networkType != "default" {
+			netInfo, found := node.AlternateNames[networkType]
+			if !found {
+				return nil
+			}
+
+			if netInfo.Hostname != "" {
+				newNode.Hostname = netInfo.Hostname
+			}
+			if netInfo.Ports != nil {
+				newNode.Services = netInfo.Ports
+			}
+		}
+
 		out = append(out, newNode)
 	}
 
 	return out
+}
+
+func NetworkFromTerseBucketConfig(config TerseBucketConfig) string {
+	// Check if we connected using any of the ports associated with the default
+	// configurations that are available.
+	for _, node := range config.NodesExt {
+		for _, svcPort := range node.Services {
+			if fmt.Sprintf("%s:%d", node.Hostname, svcPort) == config.SourceHost {
+				return "default"
+			}
+		}
+	}
+
+	for _, node := range config.NodesExt {
+		if _, found := node.AlternateNames["external"]; found {
+			return "external"
+		}
+	}
+
+	return "default"
 }
 
 func FetchHttpTerseBucketConfig(host string, port int, bucket, user, pass string) (TerseBucketConfig, error) {
@@ -376,6 +416,7 @@ func Diagnose(connStr, username, password string) {
 	//  BOOTSTRAP
 	//======================================================================
 	var nodesList []ClusterNode
+	var selectedNetwork string
 	var configSource string
 
 	// Scans a list of hosts and configurations and logs any appropriate warnings then returns
@@ -446,7 +487,10 @@ func Diagnose(connStr, username, password string) {
 
 			masterConfig := scanTerseConfigList(resConnSpec.MemdHosts, configs)
 			if masterConfig != nil {
-				nodesList = ClusterNodesFromTerseBucketConfig(*masterConfig)
+				if selectedNetwork == "" {
+					selectedNetwork = NetworkFromTerseBucketConfig(*masterConfig)
+				}
+				nodesList = ClusterNodesFromTerseBucketConfig(*masterConfig, selectedNetwork)
 				configSource = "cccp"
 			}
 		}
@@ -479,7 +523,10 @@ func Diagnose(connStr, username, password string) {
 
 			masterConfig := scanTerseConfigList(resConnSpec.HttpHosts, configs)
 			if masterConfig != nil {
-				nodesList = ClusterNodesFromTerseBucketConfig(*masterConfig)
+				if selectedNetwork == "" {
+					selectedNetwork = NetworkFromTerseBucketConfig(*masterConfig)
+				}
+				nodesList = ClusterNodesFromTerseBucketConfig(*masterConfig, selectedNetwork)
 				configSource = "http-terse"
 			}
 		}
@@ -497,6 +544,9 @@ func Diagnose(connStr, username, password string) {
 			gLog.Log("Failed to connect via HTTP (Full), as it is not yet supported by the doctor")
 		}
 	}
+
+	// Print out information about which network type was selected
+	gLog.Log("Selected the following network type: %s", selectedNetwork)
 
 	// Failed to bootstrap
 	if nodesList == nil {
