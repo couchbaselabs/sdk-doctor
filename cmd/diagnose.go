@@ -191,17 +191,15 @@ func fetchHTTPTerseBucketConfig(host string, port int, bucket, user, pass string
 		user = bucket
 	}
 
-	uri := fmt.Sprintf("http://%s:%d/pools/default/b/%s", host, port, bucket)
-
-	req, err := http.NewRequest("GET", uri, nil)
-	if err != nil {
-		return terseBucketConfig{}, err
+	httpTransport := &http.Transport{}
+	httpClient := &http.Client{
+		Transport: httpTransport,
+		Timeout:   2000 * time.Millisecond,
 	}
 
+	uri := fmt.Sprintf("http://%s:%d/pools/default/b/%s", host, port, bucket)
+	req, _ := http.NewRequest("GET", uri, nil)
 	req.SetBasicAuth(user, pass)
-
-	var httpClient http.Client
-	httpClient.Timeout = time.Millisecond * 2000
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
@@ -624,12 +622,18 @@ func diagnose(connStr, username, password string) {
 		} else {
 			infoSourceHost := infoSourceTarget.Hostname
 			infoSourcePort := infoSourceTarget.Services["mgmt"]
+
+			httpTransport := &http.Transport{}
+			httpClient := &http.Client{
+				Transport: httpTransport,
+				Timeout:   2000 * time.Millisecond,
+			}
+
 			uri := fmt.Sprintf("http://%s:%d/pools/default", infoSourceHost, infoSourcePort)
+			req, _ := http.NewRequest("GET", uri, nil)
+			req.SetBasicAuth(username, password)
 
-			var httpClient http.Client
-			httpClient.Timeout = time.Millisecond * 2000
-
-			resp, err := httpClient.Get(uri)
+			resp, err := httpClient.Do(req)
 			if err != nil {
 				gLog.Log("Failed to retreive cluster information (error: %s)", err.Error())
 			} else if resp.StatusCode != 200 {
@@ -647,72 +651,55 @@ func diagnose(connStr, username, password string) {
 	//======================================================================
 	//  SERVICES
 	//======================================================================
-	var testHTTPClient http.Client
-	testHTTPClient.Timeout = time.Millisecond * 2000
+
+	testHTTPTransport := &http.Transport{}
+	testHTTPClient := &http.Client{
+		Transport: testHTTPTransport,
+		Timeout:   2000 * time.Millisecond,
+	}
+
+	testMemdService := func(node clusterNode, svcName, svcKey string) {
+		if node.Services[svcKey] != 0 {
+			client, err := helpers.Dial(node.Hostname, node.Services[svcKey],
+				resConnSpec.Bucket, username, password)
+			if err != nil {
+				gLog.Error("Failed to connect to %s service at `%s:%d` (error: %s)",
+					svcName, node.Hostname, node.Services[svcKey], err.Error())
+			} else {
+				gLog.Log("Successfully connected to %s service at `%s:%d`",
+					svcName, node.Hostname, node.Services[svcKey])
+
+				client.Close()
+			}
+		}
+	}
+
+	testHTTPService := func(node clusterNode, svcName, svcKey string) {
+		if node.Services[svcKey] != 0 {
+			uri := fmt.Sprintf("http://%s:%d/", node.Hostname, node.Services[svcKey])
+			req, _ := http.NewRequest("GET", uri, nil)
+			// No credentials are set here since we only care that the service responds,
+			//  not that it responds with anything in particular.
+
+			_, err := testHTTPClient.Do(req)
+			if err != nil {
+				gLog.Error("Failed to connect to %s service at `%s:%d` (error: %s)",
+					svcName, node.Hostname, node.Services[svcKey], err.Error())
+			} else {
+				gLog.Log("Successfully connected to %s service at `%s:%d`",
+					svcName, node.Hostname, node.Services[svcKey])
+			}
+		}
+	}
 
 	for _, node := range nodesList {
 		if !resConnSpec.UseSsl {
-			if node.Services["kv"] != 0 {
-				client, err := helpers.Dial(node.Hostname, node.Services["kv"],
-					resConnSpec.Bucket, username, password)
-				if err != nil {
-					gLog.Error("Failed to connect to KV service at `%s:%d` (error: %s)",
-						node.Hostname, node.Services["kv"], err.Error())
-				} else {
-					gLog.Log("Successfully connected to KV service at `%s:%d`",
-						node.Hostname, node.Services["kv"])
-
-					client.Close()
-				}
-			}
-
-			if node.Services["mgmt"] != 0 {
-				uri := fmt.Sprintf("http://%s:%d/", node.Hostname, node.Services["mgmt"])
-				_, err := testHTTPClient.Get(uri)
-				if err != nil {
-					gLog.Error("Failed to connect to MGMT service at `%s:%d` (error: %s)",
-						node.Hostname, node.Services["mgmt"], err.Error())
-				} else {
-					gLog.Log("Successfully connected to MGMT service at `%s:%d`",
-						node.Hostname, node.Services["mgmt"])
-				}
-			}
-
-			if node.Services["capi"] != 0 {
-				uri := fmt.Sprintf("http://%s:%d/", node.Hostname, node.Services["capi"])
-				_, err := testHTTPClient.Get(uri)
-				if err != nil {
-					gLog.Error("Failed to connect to CAPI service at `%s:%d` (error: %s)",
-						node.Hostname, node.Services["capi"], err.Error())
-				} else {
-					gLog.Log("Successfully connected to CAPI service at `%s:%d`",
-						node.Hostname, node.Services["capi"])
-				}
-			}
-
-			if node.Services["n1ql"] != 0 {
-				uri := fmt.Sprintf("http://%s:%d/", node.Hostname, node.Services["n1ql"])
-				_, err := testHTTPClient.Get(uri)
-				if err != nil {
-					gLog.Error("Failed to connect to N1QL service at `%s:%d` (error: %s)",
-						node.Hostname, node.Services["n1ql"], err.Error())
-				} else {
-					gLog.Log("Successfully connected to N1QL service at `%s:%d`",
-						node.Hostname, node.Services["n1ql"])
-				}
-			}
-
-			if node.Services["fts"] != 0 {
-				uri := fmt.Sprintf("http://%s:%d/", node.Hostname, node.Services["fts"])
-				_, err := testHTTPClient.Get(uri)
-				if err != nil {
-					gLog.Error("Failed to connect to FTS service at `%s:%d` (error: %s)",
-						node.Hostname, node.Services["fts"], err.Error())
-				} else {
-					gLog.Log("Successfully connected to FTS service at `%s:%d`",
-						node.Hostname, node.Services["fts"])
-				}
-			}
+			testMemdService(node, "Key Value", "kv")
+			testHTTPService(node, "Management", "mgmt")
+			testHTTPService(node, "Views", "capi")
+			testHTTPService(node, "Query", "n1ql")
+			testHTTPService(node, "Search", "fts")
+			testHTTPService(node, "Analytics", "cbas")
 		} else {
 			gLog.Error("Testing of SSL connections is not yet supported")
 		}
