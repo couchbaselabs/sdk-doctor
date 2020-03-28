@@ -466,7 +466,7 @@ func Diagnose(connStr, username, password string) {
 				gLog.Warn(
 					"Bootstrap host `%s` is not using the canonical node hostname of `%s`.  This"+
 						" is not neccessarily an error, but has been known to result in strange and"+
-						" difficult-to-diagnose errors in the future when routing gets changed.",
+						" challenging to diagnose errors when DNS entries are reconfigured.",
 					target.Host, thisNodeExt.Hostname)
 			}
 		}
@@ -751,7 +751,7 @@ func Diagnose(connStr, username, password string) {
 				allowedMeanMs := 10
 				if stats.Mean() >= time.Duration(allowedMeanMs)*time.Millisecond {
 					gLog.Warn(
-						"Memcached service on `%s:%d` took longer than %dms (was: %dms) on average to"+
+						"Memcached service on `%s:%d` on average took longer than %dms (was: %dms) to"+
 							" reply.  This is usually due to network-related issues, and could significantly"+
 							" affect application performance.",
 						node.Hostname, node.Services["kv"],
@@ -761,7 +761,7 @@ func Diagnose(connStr, username, password string) {
 				allowedMaxMs := 20
 				if stats.Max() >= time.Duration(allowedMaxMs)*time.Millisecond {
 					gLog.Warn(
-						"Memcached service on `%s:%d` took longer than %dms (was: %dms) to reply."+
+						"Memcached service on `%s:%d` maximally took longer than %dms (was: %dms) to reply."+
 							" This is usually due to network-related issues, and could significantly"+
 							" affect application performance.",
 						node.Hostname, node.Services["kv"],
