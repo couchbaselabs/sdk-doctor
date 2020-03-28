@@ -327,7 +327,21 @@ func Diagnose(connStr, username, password string) {
 			// Replace the hosts for DNS testing with the values from the DNS SRV record
 			dnsHosts = []gocbconnstr.Address{}
 			for _, addr := range srvAddrs {
-				dnsHosts = append(dnsHosts, gocbconnstr.Address{addr.Target, int(addr.Port)})
+				addrTarget := addr.Target
+				addrPort := int(addr.Port)
+
+				if !strings.HasSuffix(addrTarget, ".") {
+					gLog.Warn(
+						"The hostname specified in one of the SRV records was missing the trailing" +
+							" dot which is expected to make a valid SRV record entry.")
+				}
+
+				addrTarget = strings.TrimSuffix(addrTarget, ".")
+
+				dnsHosts = append(dnsHosts, gocbconnstr.Address{
+					Host: addrTarget,
+					Port: addrPort,
+				})
 			}
 		}
 
