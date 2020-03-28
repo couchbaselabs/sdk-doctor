@@ -1,15 +1,18 @@
 package memd
 
+// CommandMagic for memcached packets
 type CommandMagic uint8
 
+// Various command magics that can be used
 const (
 	ReqMagic = CommandMagic(0x80)
 	ResMagic = CommandMagic(0x81)
 )
 
-// CommandCode for memcached packets.
+// CommandCode for memcached packets
 type CommandCode uint8
 
+// Various command codes that can be used
 const (
 	CmdGet                  = CommandCode(0x00)
 	CmdSet                  = CommandCode(0x01)
@@ -69,14 +72,18 @@ const (
 	CmdSubDocMultiMutation  = CommandCode(0xd1)
 )
 
+// SubDocFlag provides flags for packets
 type SubDocFlag uint16
 
+// Various flags for packets
 const (
 	SubDocFlagMkDirP = SubDocFlag(0x01)
 )
 
+// SubDocOpType provides the sub-document op type
 type SubDocOpType uint8
 
+// Various op types that can be used
 const (
 	SubDocOpGet            = SubDocOpType(CmdSubDocGet)
 	SubDocOpExists         = SubDocOpType(CmdSubDocExists)
@@ -91,16 +98,19 @@ const (
 	SubDocOpCounter        = SubDocOpType(CmdSubDocCounter)
 )
 
+// HelloFeature provides features during HELO
 type HelloFeature uint16
 
+// Various feature flags that can be used
 const (
 	FeatureDatatype = HelloFeature(0x01)
 	FeatureSeqNo    = HelloFeature(0x04)
 )
 
-// Status field for memcached response.
+// StatusCode provides the status of a packet
 type StatusCode uint16
 
+// Various status codes that can be used
 const (
 	StatusSuccess            = StatusCode(0x00)
 	StatusKeyNotFound        = StatusCode(0x01)
@@ -130,7 +140,7 @@ const (
 	StatusSubDocPathTooBig   = StatusCode(0xc3)
 	StatusSubDocDocTooDeep   = StatusCode(0xc4)
 	StatusSubDocCantInsert   = StatusCode(0xc5)
-	StatusSubDocNotJson      = StatusCode(0xc6)
+	StatusSubDocNotJSON      = StatusCode(0xc6)
 	StatusSubDocBadRange     = StatusCode(0xc7)
 	StatusSubDocBadDelta     = StatusCode(0xc8)
 	StatusSubDocPathExists   = StatusCode(0xc9)
@@ -139,35 +149,20 @@ const (
 	StatusSubDocBadMulti     = StatusCode(0xcc)
 )
 
-type KeyState uint8
-
-const (
-	KeyStateNotPersisted = KeyState(0x00)
-	KeyStatePersisted    = KeyState(0x01)
-	KeyStateNotFound     = KeyState(0x80)
-	KeyStateDeleted      = KeyState(0x81)
-)
-
-type StreamEndStatus uint32
-
-const (
-	StreamEndOK           = StreamEndStatus(0x00)
-	StreamEndClosed       = StreamEndStatus(0x01)
-	StreamEndStateChanged = StreamEndStatus(0x02)
-	StreamEndDisconnected = StreamEndStatus(0x03)
-	StreamEndTooSlow      = StreamEndStatus(0x04)
-)
-
+// BucketType specifies the type of a bucket
 type BucketType int
 
+// Various bucket types
 const (
 	BktTypeInvalid   BucketType = 0
 	BktTypeCouchbase            = iota
 	BktTypeMemcached            = iota
 )
 
+// VBucketState specifies the state of a vbucket
 type VBucketState uint32
 
+// Various possible vbucket states
 const (
 	VBucketStateActive  = VBucketState(0x01)
 	VBucketStateReplica = VBucketState(0x02)

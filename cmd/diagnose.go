@@ -30,7 +30,7 @@ var diagnoseCmd = &cobra.Command{
 	Long: `Diagnose runs various tests against your network and cluster
 to identify any flaws in your configuration that would cause failures
 in development or production environments.`,
-	RunE: RunDiagnose,
+	RunE: runDiagnose,
 }
 
 var (
@@ -49,7 +49,7 @@ func init() {
 
 var gLog helpers.Logger
 
-func RunDiagnose(cmd *cobra.Command, args []string) error {
+func runDiagnose(cmd *cobra.Command, args []string) error {
 	fmt.Printf(
 		"Note: Diagnostics can only provide accurate results when your cluster\n" +
 			" is in a stable state.  Active rebalancing and other cluster configuration\n" +
@@ -68,7 +68,7 @@ func RunDiagnose(cmd *cobra.Command, args []string) error {
 	if passwordArg == "" && bucketPasswordArg != "" {
 		passwordArg = bucketPasswordArg
 	}
-	Diagnose(connStr, usernameArg, passwordArg)
+	diagnose(connStr, usernameArg, passwordArg)
 
 	gLog.Log("Diagnostics completed")
 	gLog.NewLine()
@@ -78,11 +78,11 @@ func RunDiagnose(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-type ClusterConfigNode struct {
+type clusterConfigNode struct {
 	OptNode           string         `json:"optNode"`
 	ThisNode          bool           `json:"thisNode"`
-	CouchApiBase      string         `json:"couchApiBase"`
-	CouchApiBaseHTTPS string         `json:"couchApiBaseHTTPS"`
+	CouchAPIBase      string         `json:"couchApiBase"`
+	CouchAPIBaseHTTPS string         `json:"couchApiBaseHTTPS"`
 	Status            string         `json:"status"`
 	Hostname          string         `json:"hostname"`
 	Version           string         `json:"version"`
@@ -91,33 +91,33 @@ type ClusterConfigNode struct {
 	Services          []string       `json:"services"`
 }
 
-type ClusterConfig struct {
-	Nodes   []ClusterConfigNode `json:"nodes"`
+type clusterConfig struct {
+	Nodes   []clusterConfigNode `json:"nodes"`
 	Buckets struct {
-		Uri string `json:"uri"`
+		URI string `json:"uri"`
 	} `json:"buckets"`
 }
 
-type BucketConfigAlternateNames struct {
+type bucketConfigAlternateNames struct {
 	Hostname string         `json:"hostname"`
 	Ports    map[string]int `json:"ports"`
 }
 
-type BucketConfigNodeExt struct {
+type bucketConfigNodeExt struct {
 	ThisNode       bool                                  `json:"thisNode"`
 	Hostname       string                                `json:"hostname"`
 	Services       map[string]int                        `json:"services"`
-	AlternateNames map[string]BucketConfigAlternateNames `json:"alternateAddresses"`
+	AlternateNames map[string]bucketConfigAlternateNames `json:"alternateAddresses"`
 }
 
-type TerseBucketConfig struct {
+type terseBucketConfig struct {
 	SourceHost string
-	Uuid       string                `json:"uuid"`
+	UUID       string                `json:"uuid"`
 	Rev        uint                  `json:"rev"`
-	NodesExt   []BucketConfigNodeExt `json:"nodesExt"`
+	NodesExt   []bucketConfigNodeExt `json:"nodesExt"`
 }
 
-func (config *TerseBucketConfig) GetSourceNodeExt() *BucketConfigNodeExt {
+func (config *terseBucketConfig) GetSourceNodeExt() *bucketConfigNodeExt {
 	for _, node := range config.NodesExt {
 		if node.ThisNode {
 			return &node
@@ -127,16 +127,16 @@ func (config *TerseBucketConfig) GetSourceNodeExt() *BucketConfigNodeExt {
 	return nil
 }
 
-type ClusterNode struct {
+type clusterNode struct {
 	Hostname string
 	Services map[string]int
 }
 
-func ClusterNodesFromTerseBucketConfig(config TerseBucketConfig, networkType string) []ClusterNode {
-	var out []ClusterNode
+func clusterNodesFromTerseBucketConfig(config terseBucketConfig, networkType string) []clusterNode {
+	var out []clusterNode
 
 	for _, node := range config.NodesExt {
-		var newNode ClusterNode
+		var newNode clusterNode
 
 		if node.Hostname == "" {
 			newNode.Hostname = config.SourceHost
@@ -166,7 +166,7 @@ func ClusterNodesFromTerseBucketConfig(config TerseBucketConfig, networkType str
 	return out
 }
 
-func NetworkFromTerseBucketConfig(config TerseBucketConfig) string {
+func networkFromTerseBucketConfig(config terseBucketConfig) string {
 	// Check if we connected using any of the ports associated with the default
 	// configurations that are available.
 	for _, node := range config.NodesExt {
@@ -186,7 +186,7 @@ func NetworkFromTerseBucketConfig(config TerseBucketConfig) string {
 	return "default"
 }
 
-func FetchHttpTerseBucketConfig(host string, port int, bucket, user, pass string) (TerseBucketConfig, error) {
+func fetchHTTPTerseBucketConfig(host string, port int, bucket, user, pass string) (terseBucketConfig, error) {
 	if user == "" {
 		user = bucket
 	}
@@ -195,7 +195,7 @@ func FetchHttpTerseBucketConfig(host string, port int, bucket, user, pass string
 
 	req, err := http.NewRequest("GET", uri, nil)
 	if err != nil {
-		return TerseBucketConfig{}, err
+		return terseBucketConfig{}, err
 	}
 
 	req.SetBasicAuth(user, pass)
@@ -205,28 +205,28 @@ func FetchHttpTerseBucketConfig(host string, port int, bucket, user, pass string
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return TerseBucketConfig{}, err
+		return terseBucketConfig{}, err
 	}
 
 	if resp.StatusCode != 200 {
 		if resp.StatusCode == 401 {
-			return TerseBucketConfig{}, errors.New("incorrect bucket/password")
+			return terseBucketConfig{}, errors.New("incorrect bucket/password")
 		}
 
-		return TerseBucketConfig{}, errors.New(fmt.Sprintf("http error (status code: %d)", resp.StatusCode))
+		return terseBucketConfig{}, fmt.Errorf("http error (status code: %d)", resp.StatusCode)
 	}
 
 	configBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return TerseBucketConfig{}, err
+		return terseBucketConfig{}, err
 	}
 
 	configBytes = bytes.Replace(configBytes, []byte("$HOST"), []byte(host), -1)
 
-	var config TerseBucketConfig
+	var config terseBucketConfig
 	err = json.Unmarshal(configBytes, &config)
 	if err != nil {
-		return TerseBucketConfig{}, err
+		return terseBucketConfig{}, err
 	}
 
 	config.SourceHost = host
@@ -234,27 +234,27 @@ func FetchHttpTerseBucketConfig(host string, port int, bucket, user, pass string
 	return config, nil
 }
 
-func FetchCccpTerseBucketConfig(host string, port int, bucket, user, pass string) (TerseBucketConfig, error) {
+func fetchCccpTerseBucketConfig(host string, port int, bucket, user, pass string) (terseBucketConfig, error) {
 	if user == "" {
 		user = bucket
 	}
 
 	client, err := helpers.Dial(host, port, bucket, user, pass)
 	if err != nil {
-		return TerseBucketConfig{}, err
+		return terseBucketConfig{}, err
 	}
 
 	configBytes, err := client.GetConfig()
 	if err != nil {
-		return TerseBucketConfig{}, err
+		return terseBucketConfig{}, err
 	}
 
 	configBytes = bytes.Replace(configBytes, []byte("$HOST"), []byte(host), -1)
 
-	var config TerseBucketConfig
+	var config terseBucketConfig
 	err = json.Unmarshal(configBytes, &config)
 	if err != nil {
-		return TerseBucketConfig{}, err
+		return terseBucketConfig{}, err
 	}
 
 	config.SourceHost = host
@@ -262,7 +262,7 @@ func FetchCccpTerseBucketConfig(host string, port int, bucket, user, pass string
 	return config, nil
 }
 
-func Diagnose(connStr, username, password string) {
+func diagnose(connStr, username, password string) {
 	//======================================================================
 	//  CONNECTION STRING
 	//======================================================================
@@ -429,18 +429,18 @@ func Diagnose(connStr, username, password string) {
 	//======================================================================
 	//  BOOTSTRAP
 	//======================================================================
-	var nodesList []ClusterNode
+	var nodesList []clusterNode
 	var selectedNetwork string
 	var configSource string
 
 	// Scans a list of hosts and configurations and logs any appropriate warnings then returns
 	//  the first good configuration that it actually encounters (or nil if none are found).
-	scanTerseConfigList := func(hosts []gocbconnstr.Address, configs []*TerseBucketConfig) *TerseBucketConfig {
+	scanTerseConfigList := func(hosts []gocbconnstr.Address, configs []*terseBucketConfig) *terseBucketConfig {
 		if len(hosts) != len(configs) {
 			panic(0)
 		}
 
-		var masterConfig *TerseBucketConfig
+		var masterConfig *terseBucketConfig
 
 		for i, target := range hosts {
 			config := configs[i]
@@ -452,7 +452,7 @@ func Diagnose(connStr, username, password string) {
 			if masterConfig == nil {
 				masterConfig = config
 			} else {
-				if config.Uuid != masterConfig.Uuid {
+				if config.UUID != masterConfig.UUID {
 					gLog.Error(
 						"Boostrap host `%s` appears to be pointing to a different cluster.  Tests"+
 							" will be running against the first successfully connected node in your"+
@@ -481,13 +481,13 @@ func Diagnose(connStr, username, password string) {
 		} else {
 			gLog.Log("Attempting to connect to cluster via CCCP")
 
-			configs := make([]*TerseBucketConfig, len(resConnSpec.MemdHosts))
+			configs := make([]*terseBucketConfig, len(resConnSpec.MemdHosts))
 
 			for i, target := range resConnSpec.MemdHosts {
 				gLog.Log("Attempting to fetch config via cccp from `%s:%d`", target.Host, target.Port)
 
 				// Query the host
-				config, err := FetchCccpTerseBucketConfig(target.Host, target.Port, resConnSpec.Bucket, username, password)
+				config, err := fetchCccpTerseBucketConfig(target.Host, target.Port, resConnSpec.Bucket, username, password)
 				if err != nil {
 					gLog.Error(
 						"Failed to fetch configuration via cccp from `%s:%d` (error: %s)",
@@ -502,9 +502,9 @@ func Diagnose(connStr, username, password string) {
 			masterConfig := scanTerseConfigList(resConnSpec.MemdHosts, configs)
 			if masterConfig != nil {
 				if selectedNetwork == "" {
-					selectedNetwork = NetworkFromTerseBucketConfig(*masterConfig)
+					selectedNetwork = networkFromTerseBucketConfig(*masterConfig)
 				}
-				nodesList = ClusterNodesFromTerseBucketConfig(*masterConfig, selectedNetwork)
+				nodesList = clusterNodesFromTerseBucketConfig(*masterConfig, selectedNetwork)
 				configSource = "cccp"
 			}
 		}
@@ -517,13 +517,13 @@ func Diagnose(connStr, username, password string) {
 		} else {
 			gLog.Log("Attempting to connect to cluster via HTTP (Terse)")
 
-			configs := make([]*TerseBucketConfig, len(resConnSpec.HttpHosts))
+			configs := make([]*terseBucketConfig, len(resConnSpec.HttpHosts))
 
 			for i, target := range resConnSpec.HttpHosts {
 				gLog.Log("Attempting to fetch terse config via http from `%s:%d`", target.Host, target.Port)
 
 				// Query the host
-				config, err := FetchHttpTerseBucketConfig(target.Host, target.Port, resConnSpec.Bucket, username, password)
+				config, err := fetchHTTPTerseBucketConfig(target.Host, target.Port, resConnSpec.Bucket, username, password)
 				if err != nil {
 					gLog.Error(
 						"Failed to fetch terse configuration via http from `%s:%d` (error: %s)",
@@ -538,9 +538,9 @@ func Diagnose(connStr, username, password string) {
 			masterConfig := scanTerseConfigList(resConnSpec.HttpHosts, configs)
 			if masterConfig != nil {
 				if selectedNetwork == "" {
-					selectedNetwork = NetworkFromTerseBucketConfig(*masterConfig)
+					selectedNetwork = networkFromTerseBucketConfig(*masterConfig)
 				}
-				nodesList = ClusterNodesFromTerseBucketConfig(*masterConfig, selectedNetwork)
+				nodesList = clusterNodesFromTerseBucketConfig(*masterConfig, selectedNetwork)
 				configSource = "http-terse"
 			}
 		}
@@ -608,7 +608,7 @@ func Diagnose(connStr, username, password string) {
 	if resConnSpec.UseSsl {
 		gLog.Log("Failed to retrieve cluster information as we don't yet support SSL")
 	} else {
-		var infoSourceTarget *ClusterNode
+		var infoSourceTarget *clusterNode
 
 		for _, target := range nodesList {
 			if target.Services["mgmt"] != 0 {
@@ -647,8 +647,8 @@ func Diagnose(connStr, username, password string) {
 	//======================================================================
 	//  SERVICES
 	//======================================================================
-	var testHttpClient http.Client
-	testHttpClient.Timeout = time.Millisecond * 2000
+	var testHTTPClient http.Client
+	testHTTPClient.Timeout = time.Millisecond * 2000
 
 	for _, node := range nodesList {
 		if !resConnSpec.UseSsl {
@@ -668,7 +668,7 @@ func Diagnose(connStr, username, password string) {
 
 			if node.Services["mgmt"] != 0 {
 				uri := fmt.Sprintf("http://%s:%d/", node.Hostname, node.Services["mgmt"])
-				_, err := testHttpClient.Get(uri)
+				_, err := testHTTPClient.Get(uri)
 				if err != nil {
 					gLog.Error("Failed to connect to MGMT service at `%s:%d` (error: %s)",
 						node.Hostname, node.Services["mgmt"], err.Error())
@@ -680,7 +680,7 @@ func Diagnose(connStr, username, password string) {
 
 			if node.Services["capi"] != 0 {
 				uri := fmt.Sprintf("http://%s:%d/", node.Hostname, node.Services["capi"])
-				_, err := testHttpClient.Get(uri)
+				_, err := testHTTPClient.Get(uri)
 				if err != nil {
 					gLog.Error("Failed to connect to CAPI service at `%s:%d` (error: %s)",
 						node.Hostname, node.Services["capi"], err.Error())
@@ -692,7 +692,7 @@ func Diagnose(connStr, username, password string) {
 
 			if node.Services["n1ql"] != 0 {
 				uri := fmt.Sprintf("http://%s:%d/", node.Hostname, node.Services["n1ql"])
-				_, err := testHttpClient.Get(uri)
+				_, err := testHTTPClient.Get(uri)
 				if err != nil {
 					gLog.Error("Failed to connect to N1QL service at `%s:%d` (error: %s)",
 						node.Hostname, node.Services["n1ql"], err.Error())
@@ -704,7 +704,7 @@ func Diagnose(connStr, username, password string) {
 
 			if node.Services["fts"] != 0 {
 				uri := fmt.Sprintf("http://%s:%d/", node.Hostname, node.Services["fts"])
-				_, err := testHttpClient.Get(uri)
+				_, err := testHTTPClient.Get(uri)
 				if err != nil {
 					gLog.Error("Failed to connect to FTS service at `%s:%d` (error: %s)",
 						node.Hostname, node.Services["fts"], err.Error())

@@ -8,10 +8,8 @@ import (
 	"time"
 )
 
-// The data for a request that can be queued with a memdqueueconn,
-//   and can potentially be rerouted to multiple servers due to
-//   configuration changes.
-type MemdRequest struct {
+// Request encapsulates a memcached request
+type Request struct {
 	Magic    CommandMagic
 	Opcode   CommandCode
 	Datatype uint8
@@ -23,9 +21,8 @@ type MemdRequest struct {
 	Value    []byte
 }
 
-// The data returned from the server in relation to an executed
-//   request.
-type MemdResponse struct {
+// Response encapsulates a memcached response
+type Response struct {
 	Magic    CommandMagic
 	Opcode   CommandCode
 	Datatype uint8
@@ -37,13 +34,15 @@ type MemdResponse struct {
 	Value    []byte
 }
 
-type MemdDialer interface {
+// Dialer provides an interface for dialing memcached connections
+type Dialer interface {
 	Dial(address string) (io.ReadWriteCloser, error)
 }
 
-type MemdReadWriteCloser interface {
-	WritePacket(*MemdRequest) error
-	ReadPacket(*MemdResponse) error
+// ReadWriteCloser provides an interface for reading and writing packets
+type ReadWriteCloser interface {
+	WritePacket(*Request) error
+	ReadPacket(*Response) error
 	Close() error
 }
 
@@ -52,7 +51,8 @@ type memdConn struct {
 	recvBuf []byte
 }
 
-func DialMemdConn(address string, tlsConfig *tls.Config, deadline time.Time) (MemdReadWriteCloser, error) {
+// DialMemdConn dials a memcached connection
+func DialMemdConn(address string, tlsConfig *tls.Config, deadline time.Time) (ReadWriteCloser, error) {
 	d := net.Dialer{
 		Deadline: deadline,
 	}
@@ -87,7 +87,7 @@ func (s *memdConn) Close() error {
 	return s.conn.Close()
 }
 
-func (s *memdConn) WritePacket(req *MemdRequest) error {
+func (s *memdConn) WritePacket(req *Request) error {
 	extLen := len(req.Extras)
 	keyLen := len(req.Key)
 	valLen := len(req.Value)
@@ -149,7 +149,7 @@ func (s *memdConn) readBuffered(n int) ([]byte, error) {
 	}
 }
 
-func (s *memdConn) ReadPacket(resp *MemdResponse) error {
+func (s *memdConn) ReadPacket(resp *Response) error {
 	hdrBuf, err := s.readBuffered(24)
 	if err != nil {
 		return err

@@ -9,10 +9,12 @@ import (
 	"github.com/couchbaselabs/sdk-doctor/memd"
 )
 
+// MemdClient provides a memcached client
 type MemdClient struct {
-	conn memd.MemdReadWriteCloser
+	conn memd.ReadWriteCloser
 }
 
+// Dial will dial a particular host and return a MemdClient
 func Dial(host string, port int, bucket, user, pass string) (*MemdClient, error) {
 	if user == "" {
 		user = bucket
@@ -47,14 +49,15 @@ func Dial(host string, port int, bucket, user, pass string) (*MemdClient, error)
 	return &client, nil
 }
 
+// Close closes a connection
 func (client *MemdClient) Close() {
 	client.conn.Close()
 }
 
 func (client *MemdClient) auth(user, pass string) error {
-	var resp memd.MemdResponse
+	var resp memd.Response
 
-	err := client.conn.WritePacket(&memd.MemdRequest{
+	err := client.conn.WritePacket(&memd.Request{
 		Magic:  memd.ReqMagic,
 		Opcode: memd.CmdSASLListMechs,
 	})
@@ -93,7 +96,7 @@ func (client *MemdClient) auth(user, pass string) error {
 	authData[1+len(userBuf)] = 0
 	copy(authData[1+len(userBuf)+1:], passBuf)
 
-	err = client.conn.WritePacket(&memd.MemdRequest{
+	err = client.conn.WritePacket(&memd.Request{
 		Magic:  memd.ReqMagic,
 		Opcode: memd.CmdSASLAuth,
 		Key:    []byte("PLAIN"),
@@ -113,16 +116,16 @@ func (client *MemdClient) auth(user, pass string) error {
 			return errors.New("invalid bucket name/password")
 		}
 
-		return errors.New(fmt.Sprintf("SASL auth failed for user `%s` (status: %d)", user, resp.Status))
+		return fmt.Errorf("SASL auth failed for user `%s` (status: %d)", user, resp.Status)
 	}
 
 	return nil
 }
 
 func (client *MemdClient) selectBucket(bucket string) error {
-	var resp memd.MemdResponse
+	var resp memd.Response
 
-	err := client.conn.WritePacket(&memd.MemdRequest{
+	err := client.conn.WritePacket(&memd.Request{
 		Magic:  memd.ReqMagic,
 		Opcode: memd.CmdSelectBucket,
 		Key:    []byte(bucket),
@@ -137,16 +140,17 @@ func (client *MemdClient) selectBucket(bucket string) error {
 	}
 
 	if resp.Status != 0 {
-		return errors.New(fmt.Sprintf("failed to select bucket `%s` (status: %d)", bucket, resp.Status))
+		return fmt.Errorf("failed to select bucket `%s` (status: %d)", bucket, resp.Status)
 	}
 
 	return nil
 }
 
+// GetConfig will fetch a config via CCCP
 func (client *MemdClient) GetConfig() ([]byte, error) {
-	var resp memd.MemdResponse
+	var resp memd.Response
 
-	err := client.conn.WritePacket(&memd.MemdRequest{
+	err := client.conn.WritePacket(&memd.Request{
 		Magic:  memd.ReqMagic,
 		Opcode: memd.CmdGetClusterConfig,
 	})
@@ -160,16 +164,17 @@ func (client *MemdClient) GetConfig() ([]byte, error) {
 	}
 
 	if resp.Status != memd.StatusSuccess {
-		return nil, errors.New(fmt.Sprintf("failed to get config (status: %d)", resp.Status))
+		return nil, fmt.Errorf("failed to get config (status: %d)", resp.Status)
 	}
 
 	return resp.Value, nil
 }
 
+// Ping will send a ping and wait for a response
 func (client *MemdClient) Ping() error {
-	var resp memd.MemdResponse
+	var resp memd.Response
 
-	client.conn.WritePacket(&memd.MemdRequest{
+	client.conn.WritePacket(&memd.Request{
 		Magic:  memd.ReqMagic,
 		Opcode: memd.CmdNop,
 	})
