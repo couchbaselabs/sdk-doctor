@@ -1,6 +1,7 @@
 package helpers
 
 import (
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"strings"
@@ -15,7 +16,7 @@ type MemdClient struct {
 }
 
 // Dial will dial a particular host and return a MemdClient
-func Dial(host string, port int, bucket, user, pass string) (*MemdClient, error) {
+func Dial(host string, port int, bucket, user, pass string, tlsConfig *tls.Config) (*MemdClient, error) {
 	if user == "" {
 		user = bucket
 	}
@@ -24,7 +25,13 @@ func Dial(host string, port int, bucket, user, pass string) (*MemdClient, error)
 
 	deadline := time.Now().Add(time.Millisecond * 2000)
 
-	conn, err := memd.DialMemdConn(address, nil, deadline)
+	var srvTLSConfig *tls.Config
+	if tlsConfig != nil {
+		srvTLSConfig = tlsConfig.Clone()
+		srvTLSConfig.ServerName = host
+	}
+
+	conn, err := memd.DialMemdConn(address, srvTLSConfig, deadline)
 	if err != nil {
 		return nil, err
 	}

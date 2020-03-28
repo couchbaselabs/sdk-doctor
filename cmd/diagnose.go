@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"bytes"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -34,6 +36,7 @@ in development or production environments.`,
 }
 
 var (
+	tlsCaArg          string
 	usernameArg       string
 	passwordArg       string
 	bucketPasswordArg string
@@ -42,6 +45,7 @@ var (
 func init() {
 	RootCmd.AddCommand(diagnoseCmd)
 
+	diagnoseCmd.PersistentFlags().StringVarP(&tlsCaArg, "tls-ca", "a", "", "certificate authority")
 	diagnoseCmd.PersistentFlags().StringVarP(&usernameArg, "username", "u", "", "username")
 	diagnoseCmd.PersistentFlags().StringVarP(&passwordArg, "password", "p", "", "password")
 	diagnoseCmd.PersistentFlags().StringVarP(&bucketPasswordArg, "bucket-password", "z", "", "bucket password (deprecated, use password instead)")
@@ -65,10 +69,25 @@ func runDiagnose(cmd *cobra.Command, args []string) error {
 		connStr = args[0]
 	}
 
+	var tlsConfig *tls.Config
+	if tlsCaArg != "" {
+		caCertData, err := ioutil.ReadFile(tlsCaArg)
+		if err != nil {
+			gLog.Error("Failed to read specified TLS certificate authority: %s", err)
+			return nil
+		}
+
+		rootCAs := x509.NewCertPool()
+		rootCAs.AppendCertsFromPEM(caCertData)
+
+		tlsConfig = &tls.Config{}
+		tlsConfig.RootCAs = rootCAs
+	}
+
 	if passwordArg == "" && bucketPasswordArg != "" {
 		passwordArg = bucketPasswordArg
 	}
-	diagnose(connStr, usernameArg, passwordArg)
+	diagnose(connStr, usernameArg, passwordArg, tlsConfig)
 
 	gLog.Log("Diagnostics completed")
 	gLog.NewLine()
@@ -186,12 +205,14 @@ func networkFromTerseBucketConfig(config terseBucketConfig) string {
 	return "default"
 }
 
-func fetchHTTPTerseBucketConfig(host string, port int, bucket, user, pass string) (terseBucketConfig, error) {
+func fetchHTTPTerseBucketConfig(host string, port int, bucket, user, pass string, tlsConfig *tls.Config) (terseBucketConfig, error) {
 	if user == "" {
 		user = bucket
 	}
 
-	httpTransport := &http.Transport{}
+	httpTransport := &http.Transport{
+		TLSClientConfig: tlsConfig,
+	}
 	httpClient := &http.Client{
 		Transport: httpTransport,
 		Timeout:   2000 * time.Millisecond,
@@ -232,12 +253,12 @@ func fetchHTTPTerseBucketConfig(host string, port int, bucket, user, pass string
 	return config, nil
 }
 
-func fetchCccpTerseBucketConfig(host string, port int, bucket, user, pass string) (terseBucketConfig, error) {
+func fetchCccpTerseBucketConfig(host string, port int, bucket, user, pass string, tlsConfig *tls.Config) (terseBucketConfig, error) {
 	if user == "" {
 		user = bucket
 	}
 
-	client, err := helpers.Dial(host, port, bucket, user, pass)
+	client, err := helpers.Dial(host, port, bucket, user, pass, tlsConfig)
 	if err != nil {
 		return terseBucketConfig{}, err
 	}
@@ -260,7 +281,7 @@ func fetchCccpTerseBucketConfig(host string, port int, bucket, user, pass string
 	return config, nil
 }
 
-func diagnose(connStr, username, password string) {
+func diagnose(connStr, username, password string, tlsConfig *tls.Config) {
 	//======================================================================
 	//  CONNECTION STRING
 	//======================================================================
@@ -291,6 +312,17 @@ func diagnose(connStr, username, password string) {
 
 	if resConnSpec.UseSsl {
 		gLog.Log("Connection string specifies to use secured connections")
+
+		if tlsConfig == nil {
+			gLog.Warn("No certificate authority file specified (--tls-ca), skipping" +
+				" server certificate verification for this run.")
+
+			tlsConfig = &tls.Config{
+				InsecureSkipVerify: true,
+			}
+		}
+	} else {
+		tlsConfig = nil
 	}
 
 	gLog.Log("Connection string identifies the following CCCP endpoints:")
@@ -415,16 +447,6 @@ func diagnose(connStr, username, password string) {
 	}
 
 	//======================================================================
-	//  SSL
-	//======================================================================
-	if resConnSpec.UseSsl {
-		gLog.Warn(
-			"The FTS service within Couchbase Server is not currently capable" +
-				" of serving data through SSL.  As this is the case, your application will" +
-				" not be able to perform FTS queries with your SSL bootstrap configuration.")
-	}
-
-	//======================================================================
 	//  BOOTSTRAP
 	//======================================================================
 	var nodesList []clusterNode
@@ -485,7 +507,7 @@ func diagnose(connStr, username, password string) {
 				gLog.Log("Attempting to fetch config via cccp from `%s:%d`", target.Host, target.Port)
 
 				// Query the host
-				config, err := fetchCccpTerseBucketConfig(target.Host, target.Port, resConnSpec.Bucket, username, password)
+				config, err := fetchCccpTerseBucketConfig(target.Host, target.Port, resConnSpec.Bucket, username, password, tlsConfig)
 				if err != nil {
 					gLog.Error(
 						"Failed to fetch configuration via cccp from `%s:%d` (error: %s)",
@@ -521,7 +543,7 @@ func diagnose(connStr, username, password string) {
 				gLog.Log("Attempting to fetch terse config via http from `%s:%d`", target.Host, target.Port)
 
 				// Query the host
-				config, err := fetchHTTPTerseBucketConfig(target.Host, target.Port, resConnSpec.Bucket, username, password)
+				config, err := fetchHTTPTerseBucketConfig(target.Host, target.Port, resConnSpec.Bucket, username, password, tlsConfig)
 				if err != nil {
 					gLog.Error(
 						"Failed to fetch terse configuration via http from `%s:%d` (error: %s)",
@@ -603,33 +625,43 @@ func diagnose(connStr, username, password string) {
 	//======================================================================
 	//  CLUSTER INFORMATION
 	//======================================================================
-	if resConnSpec.UseSsl {
-		gLog.Log("Failed to retrieve cluster information as we don't yet support SSL")
-	} else {
+	{
 		var infoSourceTarget *clusterNode
 
+		infoSourceSvcKey := "mgmt"
+		infoSourceScheme := "http"
+		if tlsConfig != nil {
+			infoSourceSvcKey = "mgmtSSL"
+			infoSourceScheme = "https"
+		}
+
 		for _, target := range nodesList {
-			if target.Services["mgmt"] != 0 {
+			if target.Services[infoSourceSvcKey] != 0 {
 				infoSourceTarget = &target
 				break
 			}
 		}
 
-		gLog.Log("Fetching config from `%s:%d`", infoSourceTarget.Hostname, infoSourceTarget.Services["mgmt"])
-
 		if infoSourceTarget == nil {
 			gLog.Log("Failed to retrieve cluster information as we couldn't find a node with management services")
 		} else {
 			infoSourceHost := infoSourceTarget.Hostname
-			infoSourcePort := infoSourceTarget.Services["mgmt"]
+			infoSourcePort := infoSourceTarget.Services[infoSourceSvcKey]
 
-			httpTransport := &http.Transport{}
+			gLog.Log("Fetching config from `%s://%s:%d`",
+				infoSourceScheme,
+				infoSourceHost,
+				infoSourcePort)
+
+			httpTransport := &http.Transport{
+				TLSClientConfig: tlsConfig,
+			}
 			httpClient := &http.Client{
 				Transport: httpTransport,
 				Timeout:   2000 * time.Millisecond,
 			}
 
-			uri := fmt.Sprintf("http://%s:%d/pools/default", infoSourceHost, infoSourcePort)
+			uri := fmt.Sprintf("%s://%s:%d/pools/default", infoSourceScheme, infoSourceHost, infoSourcePort)
 			req, _ := http.NewRequest("GET", uri, nil)
 			req.SetBasicAuth(username, password)
 
@@ -652,16 +684,24 @@ func diagnose(connStr, username, password string) {
 	//  SERVICES
 	//======================================================================
 
-	testHTTPTransport := &http.Transport{}
+	testHTTPTransport := &http.Transport{
+		TLSClientConfig: tlsConfig,
+	}
 	testHTTPClient := &http.Client{
 		Transport: testHTTPTransport,
 		Timeout:   2000 * time.Millisecond,
 	}
 
-	testMemdService := func(node clusterNode, svcName, svcKey string) {
-		if node.Services[svcKey] != 0 {
-			client, err := helpers.Dial(node.Hostname, node.Services[svcKey],
-				resConnSpec.Bucket, username, password)
+	testMemdService := func(node clusterNode, svcName, svcKeyPlain, svcKeySSL string) {
+		svcKey := svcKeyPlain
+		if tlsConfig != nil {
+			svcKey = svcKeySSL
+		}
+
+		svcPort := node.Services[svcKey]
+		if svcPort != 0 {
+			client, err := helpers.Dial(node.Hostname, svcPort,
+				resConnSpec.Bucket, username, password, tlsConfig)
 			if err != nil {
 				gLog.Error("Failed to connect to %s service at `%s:%d` (error: %s)",
 					svcName, node.Hostname, node.Services[svcKey], err.Error())
@@ -671,12 +711,22 @@ func diagnose(connStr, username, password string) {
 
 				client.Close()
 			}
+		} else {
+			gLog.Warn("Could not test %s service on `%s` as it was not in the config", svcName, node.Hostname)
 		}
 	}
 
-	testHTTPService := func(node clusterNode, svcName, svcKey string) {
-		if node.Services[svcKey] != 0 {
-			uri := fmt.Sprintf("http://%s:%d/", node.Hostname, node.Services[svcKey])
+	testHTTPService := func(node clusterNode, svcName, svcKeyPlain, svcKeySSL string) {
+		svcScheme := "http"
+		svcKey := svcKeyPlain
+		if tlsConfig != nil {
+			svcScheme = "https"
+			svcKey = svcKeySSL
+		}
+
+		svcPort := node.Services[svcKey]
+		if svcPort != 0 {
+			uri := fmt.Sprintf("%s://%s:%d/", svcScheme, node.Hostname, svcPort)
 			req, _ := http.NewRequest("GET", uri, nil)
 			// No credentials are set here since we only care that the service responds,
 			//  not that it responds with anything in particular.
@@ -689,74 +739,73 @@ func diagnose(connStr, username, password string) {
 				gLog.Log("Successfully connected to %s service at `%s:%d`",
 					svcName, node.Hostname, node.Services[svcKey])
 			}
+		} else {
+			gLog.Warn("Could not test %s service on `%s` as it was not in the config", svcName, node.Hostname)
 		}
 	}
 
 	for _, node := range nodesList {
-		if !resConnSpec.UseSsl {
-			testMemdService(node, "Key Value", "kv")
-			testHTTPService(node, "Management", "mgmt")
-			testHTTPService(node, "Views", "capi")
-			testHTTPService(node, "Query", "n1ql")
-			testHTTPService(node, "Search", "fts")
-			testHTTPService(node, "Analytics", "cbas")
-		} else {
-			gLog.Error("Testing of SSL connections is not yet supported")
-		}
+		testMemdService(node, "Key Value", "kv", "kvSSL")
+		testHTTPService(node, "Management", "mgmt", "mgmtSSL")
+		testHTTPService(node, "Views", "capi", "capiSSL")
+		testHTTPService(node, "Query", "n1ql", "n1qlSSL")
+		testHTTPService(node, "Search", "fts", "ftsSSL")
+		testHTTPService(node, "Analytics", "cbas", "cbasSSL")
 	}
 
 	//======================================================================
 	//  CONNECTION PERFORMANCE
 	//======================================================================
 	for _, node := range nodesList {
-		if !resConnSpec.UseSsl {
-			if node.Services["kv"] != 0 {
-				client, err := helpers.Dial(node.Hostname, node.Services["kv"],
-					resConnSpec.Bucket, username, password)
-				if err != nil {
-					gLog.Warn(
-						"Failed to perform KV connection performance analysis on `%s:%d` (error: %d)",
-						node.Hostname, node.Services["kv"], err.Error())
-					continue
-				}
+		kvPort := node.Services["kv"]
+		if tlsConfig != nil {
+			kvPort = node.Services["kvSSL"]
+		}
 
-				var stats helpers.PingHelper
-
-				for i := 0; i < 10; i++ {
-					pingState := stats.StartOne()
-					err = client.Ping()
-					stats.StopOne(pingState, err)
-				}
-
-				gLog.Log("Memd Nop Pinged `%s:%d` %d times, %d errors, %dms min, %dms max, %dms mean",
-					node.Hostname, node.Services["kv"],
-					stats.Count(), stats.Errors(),
-					stats.Min()/time.Millisecond,
-					stats.Max()/time.Millisecond,
-					stats.Mean()/time.Millisecond)
-
-				allowedMeanMs := 10
-				if stats.Mean() >= time.Duration(allowedMeanMs)*time.Millisecond {
-					gLog.Warn(
-						"Memcached service on `%s:%d` on average took longer than %dms (was: %dms) to"+
-							" reply.  This is usually due to network-related issues, and could significantly"+
-							" affect application performance.",
-						node.Hostname, node.Services["kv"],
-						allowedMeanMs, stats.Mean()/time.Millisecond)
-				}
-
-				allowedMaxMs := 20
-				if stats.Max() >= time.Duration(allowedMaxMs)*time.Millisecond {
-					gLog.Warn(
-						"Memcached service on `%s:%d` maximally took longer than %dms (was: %dms) to reply."+
-							" This is usually due to network-related issues, and could significantly"+
-							" affect application performance.",
-						node.Hostname, node.Services["kv"],
-						allowedMaxMs, stats.Max()/time.Millisecond)
-				}
+		if kvPort != 0 {
+			client, err := helpers.Dial(node.Hostname, kvPort,
+				resConnSpec.Bucket, username, password, tlsConfig)
+			if err != nil {
+				gLog.Warn(
+					"Failed to perform KV connection performance analysis on `%s:%d` (error: %d)",
+					node.Hostname, kvPort, err.Error())
+				continue
 			}
-		} else {
-			gLog.Error("Testing of SSL connections is not yet supported")
+
+			var stats helpers.PingHelper
+
+			for i := 0; i < 10; i++ {
+				pingState := stats.StartOne()
+				err = client.Ping()
+				stats.StopOne(pingState, err)
+			}
+
+			gLog.Log("Memd Nop Pinged `%s:%d` %d times, %d errors, %dms min, %dms max, %dms mean",
+				node.Hostname, kvPort,
+				stats.Count(), stats.Errors(),
+				stats.Min()/time.Millisecond,
+				stats.Max()/time.Millisecond,
+				stats.Mean()/time.Millisecond)
+
+			allowedMeanMs := 10
+			if stats.Mean() >= time.Duration(allowedMeanMs)*time.Millisecond {
+				gLog.Warn(
+					"Memcached service on `%s:%d` on average took longer than %dms (was: %dms) to"+
+						" reply.  This is usually due to network-related issues, and could significantly"+
+						" affect application performance.",
+					node.Hostname, kvPort,
+					allowedMeanMs, stats.Mean()/time.Millisecond)
+			}
+
+			allowedMaxMs := 20
+			if stats.Max() >= time.Duration(allowedMaxMs)*time.Millisecond {
+				gLog.Warn(
+					"Memcached service on `%s:%d` maximally took longer than %dms (was: %dms) to reply."+
+						" This is usually due to network-related issues, and could significantly"+
+						" affect application performance.",
+					node.Hostname, kvPort,
+					allowedMaxMs, stats.Max()/time.Millisecond)
+			}
 		}
 	}
 }
