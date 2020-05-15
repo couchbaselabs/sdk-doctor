@@ -1,6 +1,6 @@
 language: go
 go:
-  - 1.7.x
+  - 1.14.3
 sudo: required
 services:
   - docker
@@ -16,19 +16,19 @@ script:
   - GOOS=windows GOARCH=amd64 go build -o sdk-doctor-windows.exe
   - docker build -t couchbase/sdk-doctor:${TRAVIS_BUILD_NUMBER} .
 deploy:
-- provider: releases
-  api_key:
-    secure: CfrzySK7rEYKMZWBKcsBGHZLCnuoQYBR+tw/l1CNa9JjeUPAWMBZAKFqdXkAy+05+ChaYSIXDpcRhU3Sk78hk6R39FzbFSw0/xlwdGa3gdhomLqEyZ8hqzfSaZBZpNeERX6nLZ/C/Ee1KVGtcoyQL3FV5akYTFZBsqRsab0YX619yFJiRyCuUWo/9LViS5nwn5/YtPN4uVyj/qX139oJ35bJGGYPuVTv+12HDi6lKYZ+OtjT6Y/dF9awAtcK7nsPrNsQ1a5u4QJqlSzwAYluS8+Yat96E9EzTvXfOjDFECqCrKo5VhIqfQ6HNbjoxQ/p0vMEIU2JYMFg2idkOFLm1EB9rumPlArLpce+x6oBruJICbgTJ5JpTCTZhMBrTH35arzHY424xpRHx0QmfKmP7Fn246oaOwlCIK+HI1jzOIOMKM6NPOuEwiYJ4W7D2uCvbJaBwk8Qm7L9xZZIwQeo+7rDugDysOS8X2KrIBegzKj9fMh7OmIPLCE4xdU0EVfEwXli1FHT75vYxsbryRqDaRxJ8UV7EBNynwzaMxVeKmIJe7A/ugYMQ6L7vVkWLvC+wI+KWgmOLeTXZdq1EMIFYsLxb9R4/JHah7NBij0XAOYKw/iyjh9SQ+2THQcAAsDnze3jt1pw837JWdLgKRR9fP1rUut+BTJnKCg7mvKH4a0=
-  file:
-    - sdk-doctor-macos
-    - sdk-doctor-linux
-    - sdk-doctor-windows.exe
-  skip_cleanup: true
-  on:
-    repo: couchbaselabs/sdk-doctor
-    tags: true
-- provider: script
-  script: build/docker_push.sh
-  on:
-    repo: couchbaselabs/sdk-doctor
-    tags: true
+  - provider: releases
+    api_key:
+      secure: CfrzySK7rEYKMZWBKcsBGHZLCnuoQYBR+tw/l1CNa9JjeUPAWMBZAKFqdXkAy+05+ChaYSIXDpcRhU3Sk78hk6R39FzbFSw0/xlwdGa3gdhomLqEyZ8hqzfSaZBZpNeERX6nLZ/C/Ee1KVGtcoyQL3FV5akYTFZBsqRsab0YX619yFJiRyCuUWo/9LViS5nwn5/YtPN4uVyj/qX139oJ35bJGGYPuVTv+12HDi6lKYZ+OtjT6Y/dF9awAtcK7nsPrNsQ1a5u4QJqlSzwAYluS8+Yat96E9EzTvXfOjDFECqCrKo5VhIqfQ6HNbjoxQ/p0vMEIU2JYMFg2idkOFLm1EB9rumPlArLpce+x6oBruJICbgTJ5JpTCTZhMBrTH35arzHY424xpRHx0QmfKmP7Fn246oaOwlCIK+HI1jzOIOMKM6NPOuEwiYJ4W7D2uCvbJaBwk8Qm7L9xZZIwQeo+7rDugDysOS8X2KrIBegzKj9fMh7OmIPLCE4xdU0EVfEwXli1FHT75vYxsbryRqDaRxJ8UV7EBNynwzaMxVeKmIJe7A/ugYMQ6L7vVkWLvC+wI+KWgmOLeTXZdq1EMIFYsLxb9R4/JHah7NBij0XAOYKw/iyjh9SQ+2THQcAAsDnze3jt1pw837JWdLgKRR9fP1rUut+BTJnKCg7mvKH4a0=
+    file:
+      - sdk-doctor-macos
+      - sdk-doctor-linux
+      - sdk-doctor-windows.exe
+    skip_cleanup: true
+    on:
+      repo: couchbaselabs/sdk-doctor
+      tags: true
+  - provider: script
+    script: build/docker_push.sh
+    on:
+      repo: couchbaselabs/sdk-doctor
+      tags: true
