@@ -312,17 +312,6 @@ func diagnose(connStr, username, password string, tlsConfig *tls.Config) {
 
 	if resConnSpec.UseSsl {
 		gLog.Log("Connection string specifies to use secured connections")
-
-		if tlsConfig == nil {
-			gLog.Warn("No certificate authority file specified (--tls-ca), skipping" +
-				" server certificate verification for this run.")
-
-			tlsConfig = &tls.Config{
-				InsecureSkipVerify: true,
-			}
-		}
-	} else {
-		tlsConfig = nil
 	}
 
 	gLog.Log("Connection string identifies the following CCCP endpoints:")
@@ -336,6 +325,22 @@ func diagnose(connStr, username, password string, tlsConfig *tls.Config) {
 	}
 
 	gLog.Log("Connection string specifies bucket `%s`", resConnSpec.Bucket)
+
+	//======================================================================
+	//  SSL
+	//======================================================================
+	if resConnSpec.UseSsl {
+		if tlsConfig == nil {
+			gLog.Warn("No certificate authority file specified (--tls-ca), skipping" +
+				" server certificate verification for this run.")
+
+			tlsConfig = &tls.Config{
+				InsecureSkipVerify: true,
+			}
+		}
+	} else {
+		tlsConfig = nil
+	}
 
 	//======================================================================
 	//  DNS
