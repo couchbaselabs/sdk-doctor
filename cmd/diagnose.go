@@ -347,13 +347,11 @@ func diagnose(connStr, username, password string, tlsConfig *tls.Config) {
 	//  SSL
 	//======================================================================
 	if resConnSpec.UseSsl {
-		if tlsConfig == nil {
+		if tlsConfig.RootCAs == nil {
 			gLog.Warn("No certificate authority file specified (--tls-ca), skipping" +
 				" server certificate verification for this run.")
 
-			tlsConfig = &tls.Config{
-				InsecureSkipVerify: true,
-			}
+			tlsConfig.InsecureSkipVerify = true
 		}
 	} else {
 		tlsConfig = nil
