@@ -37,6 +37,8 @@ in development or production environments.`,
 
 var (
 	tlsCaArg          string
+	tlsClientKey      string
+	tlsClientCert     string
 	usernameArg       string
 	passwordArg       string
 	bucketPasswordArg string
@@ -46,6 +48,8 @@ func init() {
 	RootCmd.AddCommand(diagnoseCmd)
 
 	diagnoseCmd.PersistentFlags().StringVarP(&tlsCaArg, "tls-ca", "a", "", "certificate authority")
+	diagnoseCmd.PersistentFlags().StringVar(&tlsClientKey, "pkey", "", "client private key")
+	diagnoseCmd.PersistentFlags().StringVar(&tlsClientCert, "cert", "", "client certificate")
 	diagnoseCmd.PersistentFlags().StringVarP(&usernameArg, "username", "u", "", "username")
 	diagnoseCmd.PersistentFlags().StringVarP(&passwordArg, "password", "p", "", "password")
 	diagnoseCmd.PersistentFlags().StringVarP(&bucketPasswordArg, "bucket-password", "z", "", "bucket password (deprecated, use password instead)")
@@ -70,6 +74,8 @@ func runDiagnose(cmd *cobra.Command, args []string) error {
 	}
 
 	var tlsConfig *tls.Config
+	tlsConfig = &tls.Config{}
+
 	if tlsCaArg != "" {
 		caCertData, err := ioutil.ReadFile(tlsCaArg)
 		if err != nil {
@@ -79,14 +85,25 @@ func runDiagnose(cmd *cobra.Command, args []string) error {
 
 		rootCAs := x509.NewCertPool()
 		rootCAs.AppendCertsFromPEM(caCertData)
-
-		tlsConfig = &tls.Config{}
 		tlsConfig.RootCAs = rootCAs
 	}
 
 	if passwordArg == "" && bucketPasswordArg != "" {
 		passwordArg = bucketPasswordArg
 	}
+
+	if usernameArg == "" && passwordArg == "" &&
+		tlsClientCert != "" && tlsClientKey != "" {
+
+		keyPair, err := tls.LoadX509KeyPair(tlsClientCert, tlsClientKey)
+		if err != nil {
+			gLog.Error("Failed to read specified key pair: %s", err)
+			return nil
+		}
+
+		tlsConfig.Certificates = []tls.Certificate{keyPair}
+	}
+
 	diagnose(connStr, usernameArg, passwordArg, tlsConfig)
 
 	gLog.Log("Diagnostics completed")
