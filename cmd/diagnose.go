@@ -271,7 +271,8 @@ func fetchHTTPTerseBucketConfig(host string, port int, bucket, user, pass string
 }
 
 func fetchCccpTerseBucketConfig(host string, port int, bucket, user, pass string, tlsConfig *tls.Config) (terseBucketConfig, error) {
-	if user == "" {
+	if user == "" && 
+          tlsConfig != nil && len(tlsConfig.Certificates) == 0 {
 		user = bucket
 	}
 
