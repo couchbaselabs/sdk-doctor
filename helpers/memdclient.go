@@ -17,8 +17,7 @@ type MemdClient struct {
 
 // Dial will dial a particular host and return a MemdClient
 func Dial(host string, port int, bucket, user, pass string, tlsConfig *tls.Config) (*MemdClient, error) {
-	if user == "" && 
-          tlsConfig != nil && len(tlsConfig.Certificates) == 0 {
+	if user == "" {
 		user = bucket
 	}
 

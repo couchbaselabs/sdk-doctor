@@ -37,8 +37,8 @@ in development or production environments.`,
 
 var (
 	tlsCaArg          string
-	tlsClientKey      string
-	tlsClientCert     string
+	tlsClientKeyArg   string
+	tlsClientCertArg  string
 	usernameArg       string
 	passwordArg       string
 	bucketPasswordArg string
@@ -48,8 +48,8 @@ func init() {
 	RootCmd.AddCommand(diagnoseCmd)
 
 	diagnoseCmd.PersistentFlags().StringVarP(&tlsCaArg, "tls-ca", "a", "", "certificate authority")
-	diagnoseCmd.PersistentFlags().StringVar(&tlsClientKey, "pkey", "", "client private key")
-	diagnoseCmd.PersistentFlags().StringVar(&tlsClientCert, "cert", "", "client certificate")
+	diagnoseCmd.PersistentFlags().StringVar(&tlsClientKeyArg, "pkey", "", "client private key")
+	diagnoseCmd.PersistentFlags().StringVar(&tlsClientCertArg, "cert", "", "client certificate")
 	diagnoseCmd.PersistentFlags().StringVarP(&usernameArg, "username", "u", "", "username")
 	diagnoseCmd.PersistentFlags().StringVarP(&passwordArg, "password", "p", "", "password")
 	diagnoseCmd.PersistentFlags().StringVarP(&bucketPasswordArg, "bucket-password", "z", "", "bucket password (deprecated, use password instead)")
@@ -73,8 +73,7 @@ func runDiagnose(cmd *cobra.Command, args []string) error {
 		connStr = args[0]
 	}
 
-	var tlsConfig *tls.Config
-	tlsConfig = &tls.Config{}
+	tlsConfig := &tls.Config{}
 
 	if tlsCaArg != "" {
 		caCertData, err := ioutil.ReadFile(tlsCaArg)
@@ -92,10 +91,14 @@ func runDiagnose(cmd *cobra.Command, args []string) error {
 		passwordArg = bucketPasswordArg
 	}
 
-	if usernameArg == "" && passwordArg == "" &&
-		tlsClientCert != "" && tlsClientKey != "" {
+	if tlsClientCertArg != "" && tlsClientKeyArg != "" {
+		if usernameArg != "" || passwordArg != "" {
+			gLog.Error("Since you have provided client certificate and key,\n" + 
+		               "that assumes you are testing MTLS.  Please do not specify a username and password. \n" )
+			return nil
+		}
 
-		keyPair, err := tls.LoadX509KeyPair(tlsClientCert, tlsClientKey)
+		keyPair, err := tls.LoadX509KeyPair(tlsClientCertArg, tlsClientKeyArg)
 		if err != nil {
 			gLog.Error("Failed to read specified key pair: %s", err)
 			return nil
@@ -271,8 +274,7 @@ func fetchHTTPTerseBucketConfig(host string, port int, bucket, user, pass string
 }
 
 func fetchCccpTerseBucketConfig(host string, port int, bucket, user, pass string, tlsConfig *tls.Config) (terseBucketConfig, error) {
-	if user == "" && 
-          tlsConfig != nil && len(tlsConfig.Certificates) == 0 {
+	if user == "" {
 		user = bucket
 	}
 
