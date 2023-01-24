@@ -37,6 +37,8 @@ in development or production environments.`,
 
 var (
 	tlsCaArg          string
+	tlsClientKeyArg   string
+	tlsClientCertArg  string
 	usernameArg       string
 	passwordArg       string
 	bucketPasswordArg string
@@ -46,6 +48,8 @@ func init() {
 	RootCmd.AddCommand(diagnoseCmd)
 
 	diagnoseCmd.PersistentFlags().StringVarP(&tlsCaArg, "tls-ca", "a", "", "certificate authority")
+	diagnoseCmd.PersistentFlags().StringVar(&tlsClientKeyArg, "pkey", "", "client private key")
+	diagnoseCmd.PersistentFlags().StringVar(&tlsClientCertArg, "cert", "", "client certificate")
 	diagnoseCmd.PersistentFlags().StringVarP(&usernameArg, "username", "u", "", "username")
 	diagnoseCmd.PersistentFlags().StringVarP(&passwordArg, "password", "p", "", "password")
 	diagnoseCmd.PersistentFlags().StringVarP(&bucketPasswordArg, "bucket-password", "z", "", "bucket password (deprecated, use password instead)")
@@ -69,7 +73,8 @@ func runDiagnose(cmd *cobra.Command, args []string) error {
 		connStr = args[0]
 	}
 
-	var tlsConfig *tls.Config
+	tlsConfig := &tls.Config{}
+
 	if tlsCaArg != "" {
 		caCertData, err := ioutil.ReadFile(tlsCaArg)
 		if err != nil {
@@ -79,14 +84,29 @@ func runDiagnose(cmd *cobra.Command, args []string) error {
 
 		rootCAs := x509.NewCertPool()
 		rootCAs.AppendCertsFromPEM(caCertData)
-
-		tlsConfig = &tls.Config{}
 		tlsConfig.RootCAs = rootCAs
+
+		if tlsClientCertArg != "" && tlsClientKeyArg != "" {
+			if usernameArg != "" || passwordArg != "" {
+				gLog.Error("Since you have provided client certificate and key,\n" + 
+						"that assumes you are testing MTLS.  Please do not specify a username and password. \n" )
+				return nil
+			}
+
+			keyPair, err := tls.LoadX509KeyPair(tlsClientCertArg, tlsClientKeyArg)
+			if err != nil {
+				gLog.Error("Failed to read specified key pair: %s", err)
+				return nil
+			}
+
+			tlsConfig.Certificates = []tls.Certificate{keyPair}
+		}
 	}
 
 	if passwordArg == "" && bucketPasswordArg != "" {
 		passwordArg = bucketPasswordArg
 	}
+
 	diagnose(connStr, usernameArg, passwordArg, tlsConfig)
 
 	gLog.Log("Diagnostics completed")
@@ -330,13 +350,11 @@ func diagnose(connStr, username, password string, tlsConfig *tls.Config) {
 	//  SSL
 	//======================================================================
 	if resConnSpec.UseSsl {
-		if tlsConfig == nil {
+		if tlsConfig.RootCAs == nil {
 			gLog.Warn("No certificate authority file specified (--tls-ca), skipping" +
 				" server certificate verification for this run.")
 
-			tlsConfig = &tls.Config{
-				InsecureSkipVerify: true,
-			}
+			tlsConfig.InsecureSkipVerify = true
 		}
 	} else {
 		tlsConfig = nil

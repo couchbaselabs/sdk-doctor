@@ -39,13 +39,17 @@ func Dial(host string, port int, bucket, user, pass string, tlsConfig *tls.Confi
 	var client MemdClient
 	client.conn = conn
 
-	err = client.auth(user, pass)
-	if err != nil {
-		client.Close()
-		return nil, err
+	// do not use SASL for client authentication
+	if user != "" && pass != "" {
+		err = client.auth(user, pass)
+		if err != nil {
+			client.Close()
+			return nil, err
+		}
 	}
 
-	if bucket != user {
+	if bucket != user || 
+	   (tlsConfig != nil && len(tlsConfig.Certificates) > 0) {
 		err = client.selectBucket(bucket)
 		if err != nil {
 			client.Close()
