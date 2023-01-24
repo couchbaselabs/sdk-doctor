@@ -85,26 +85,26 @@ func runDiagnose(cmd *cobra.Command, args []string) error {
 		rootCAs := x509.NewCertPool()
 		rootCAs.AppendCertsFromPEM(caCertData)
 		tlsConfig.RootCAs = rootCAs
+
+		if tlsClientCertArg != "" && tlsClientKeyArg != "" {
+			if usernameArg != "" || passwordArg != "" {
+				gLog.Error("Since you have provided client certificate and key,\n" + 
+						"that assumes you are testing MTLS.  Please do not specify a username and password. \n" )
+				return nil
+			}
+
+			keyPair, err := tls.LoadX509KeyPair(tlsClientCertArg, tlsClientKeyArg)
+			if err != nil {
+				gLog.Error("Failed to read specified key pair: %s", err)
+				return nil
+			}
+
+			tlsConfig.Certificates = []tls.Certificate{keyPair}
+		}
 	}
 
 	if passwordArg == "" && bucketPasswordArg != "" {
 		passwordArg = bucketPasswordArg
-	}
-
-	if tlsClientCertArg != "" && tlsClientKeyArg != "" {
-		if usernameArg != "" || passwordArg != "" {
-			gLog.Error("Since you have provided client certificate and key,\n" + 
-		               "that assumes you are testing MTLS.  Please do not specify a username and password. \n" )
-			return nil
-		}
-
-		keyPair, err := tls.LoadX509KeyPair(tlsClientCertArg, tlsClientKeyArg)
-		if err != nil {
-			gLog.Error("Failed to read specified key pair: %s", err)
-			return nil
-		}
-
-		tlsConfig.Certificates = []tls.Certificate{keyPair}
 	}
 
 	diagnose(connStr, usernameArg, passwordArg, tlsConfig)
