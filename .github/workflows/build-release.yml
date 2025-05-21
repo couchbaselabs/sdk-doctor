@@ -15,9 +15,12 @@ jobs:
           go-version: ^1.13.1
       - name: Build project
         run: |
-          GOOS=darwin GOARCH=amd64 go build -o sdk-doctor-macos
-          GOOS=linux GOARCH=amd64 go build -o sdk-doctor-linux
-          GOOS=windows GOARCH=amd64 go build -o sdk-doctor-windows.exe
+          GOOS=darwin GOARCH=amd64 go build -o sdk-doctor-macos-amd64
+          GOOS=darwin GOARCH=arm64 go build -o sdk-doctor-macos-arm64
+          GOOS=linux GOARCH=amd64 go build -o sdk-doctor-linux-amd64
+          GOOS=linux GOARCH=arm64 go build -o sdk-doctor-linux-arm64
+          GOOS=windows GOARCH=amd64 go build -o sdk-doctor-windows-amd64.exe
+          GOOS=windows GOARCH=arm64 go build -o sdk-doctor-windows-arm64.exe
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -28,30 +31,57 @@ jobs:
           release_name: "Release ${{ github.ref }}"
           draft: false
           prerelease: false
-      - name: Upload Linux Release
+      - name: Upload Linux amd64 Release
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
         with:
           upload_url: "${{ steps.create_release.outputs.upload_url }}"
-          asset_path: ./sdk-doctor-linux
-          asset_name: sdk-doctor-linux
+          asset_path: ./sdk-doctor-linux-amd64
+          asset_name: sdk-doctor-linux-amd64
           asset_content_type: application/octet-stream
-      - name: Upload OSX Release
+      - name: Upload Linux arm64 Release
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
         with:
           upload_url: "${{ steps.create_release.outputs.upload_url }}"
-          asset_path: ./sdk-doctor-macos
-          asset_name: sdk-doctor-macos
+          asset_path: ./sdk-doctor-linux-arm64
+          asset_name: sdk-doctor-linux-arm64
+          asset_content_type: application/octet-stream      
+      - name: Upload OSX amd64 Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+        with:
+          upload_url: "${{ steps.create_release.outputs.upload_url }}"
+          asset_path: ./sdk-doctor-macos-amd64
+          asset_name: sdk-doctor-macos-amd64
           asset_content_type: application/octet-stream
-      - name: Upload Windows Release
+      - name: Upload OSX arm64 Release
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
         with:
           upload_url: "${{ steps.create_release.outputs.upload_url }}"
-          asset_path: ./sdk-doctor-windows.exe
-          asset_name: sdk-doctor-windows.exe
+          asset_path: ./sdk-doctor-macos-arm64
+          asset_name: sdk-doctor-macos-arm64
+          asset_content_type: application/octet-stream
+      - name: Upload Windows amd64 Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+        with:
+          upload_url: "${{ steps.create_release.outputs.upload_url }}"
+          asset_path: ./sdk-doctor-windows-amd64.exe
+          asset_name: sdk-doctor-windows-amd64.exe
+          asset_content_type: application/octet-stream
+      - name: Upload Windows arm64 Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+        with:
+          upload_url: "${{ steps.create_release.outputs.upload_url }}"
+          asset_path: ./sdk-doctor-windows-arm64.exe
+          asset_name: sdk-doctor-windows-arm64.exe
           asset_content_type: application/octet-stream
